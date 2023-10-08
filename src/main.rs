@@ -1,19 +1,16 @@
-use std::mem::size_of;
-
 use beryllium::error::SdlError;
 use beryllium::init::InitFlags;
 use beryllium::{events, video, Sdl};
-use bytemuck::offset_of;
 use gl33::{
-    global_loader::*, GL_ARRAY_BUFFER, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_DYNAMIC_DRAW, GL_FALSE,
-    GL_FLOAT, GL_FRAGMENT_SHADER, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_VERTEX_SHADER,
+    global_loader::*, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_FRAGMENT_SHADER, GL_ONE_MINUS_SRC_ALPHA,
+    GL_SRC_ALPHA, GL_VERTEX_SHADER,
 };
 
 use crate::gl::GL;
 
 use self::errors::EdiError;
 use self::font::FontAtlas;
-use self::render::{Vertex, V2, V4, MAX_VERTICES};
+use self::render::{V2, V4};
 
 mod errors;
 mod font;
@@ -50,8 +47,6 @@ fn run() -> Result<(), EdiError> {
         resizable: true,
     };
 
-    let program;
-    let mut renderer = render::Renderer::new();
     let vert_glsl = std::fs::read_to_string("vert.glsl")?;
     let frag_glsl = std::fs::read_to_string("frag.glsl")?;
 
@@ -62,62 +57,17 @@ fn run() -> Result<(), EdiError> {
     unsafe {
         load_global_gl(&|f_name| win.get_proc_address(f_name));
 
-        let mut vao = 0;
-        glGenVertexArrays(1, &mut vao);
-        glBindVertexArray(vao);
-
-        let mut vbo = 0;
-        glGenBuffers(1, &mut vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            (size_of::<Vertex>() * MAX_VERTICES) as isize,
-            renderer.vertices.as_ptr().cast(),
-            GL_DYNAMIC_DRAW,
-        );
-
-        // position
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(
-            0, // location 0
-            2, // 2 values (V2)
-            GL_FLOAT,
-            GL_FALSE.0 as u8,
-            size_of::<Vertex>() as i32,
-            offset_of!(Vertex, pos) as *const _,
-        );
-
-        // color
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(
-            1, // location 1
-            4, // 4 values (V4)
-            GL_FLOAT,
-            GL_FALSE.0 as u8,
-            size_of::<Vertex>() as i32,
-            offset_of!(Vertex, color) as *const _,
-        );
-
-        // uv
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(
-            2, // location 2
-            2, // 2 values (V2)
-            GL_FLOAT,
-            GL_FALSE.0 as u8,
-            size_of::<Vertex>() as i32,
-            offset_of!(Vertex, uv) as *const _,
-        );
-
-        let vertex_shader = GL::create_shader(GL_VERTEX_SHADER, &vert_glsl)?;
-        let fragment_shader = GL::create_shader(GL_FRAGMENT_SHADER, &frag_glsl)?;
-
-        program = GL::create_program(&[vertex_shader, fragment_shader])?;
-        program.use_program();
-
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
+
+    let mut renderer = render::Renderer::new();
+
+    let vertex_shader = GL::create_shader(GL_VERTEX_SHADER, &vert_glsl)?;
+    let fragment_shader = GL::create_shader(GL_FRAGMENT_SHADER, &frag_glsl)?;
+
+    let program = GL::create_program(&[vertex_shader, fragment_shader])?;
+    program.use_program();
 
     let resolution_uniform = program.get_location("resolution")?;
     let font_atlas = FontAtlas::new("iosevka.ttf")?;

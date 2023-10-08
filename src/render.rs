@@ -1,8 +1,11 @@
 use std::mem::size_of;
 
-use gl33::{global_loader::*, GL_ARRAY_BUFFER, GL_TRIANGLES};
+use bytemuck::offset_of;
+use gl33::{global_loader::*, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, GL_FALSE, GL_FLOAT, GL_TRIANGLES};
 
 use crate::font::FontAtlas;
+
+const MAX_VERTICES: usize = 10 * 640 * 1000;
 
 #[derive(Clone, Copy, Default)]
 pub struct V2 {
@@ -25,17 +28,68 @@ pub struct Vertex {
     pub uv: V2,
 }
 
-pub const MAX_VERTICES: usize = 10 * 640 * 1000;
-
 pub struct Renderer {
+    vao: u32,
+    vbo: u32,
     pub vertices: Vec<Vertex>,
 }
 
 impl Renderer {
     pub fn new() -> Renderer {
-        Renderer {
+        let mut renderer = Renderer {
+            vao: 0,
+            vbo: 0,
             vertices: Vec::with_capacity(MAX_VERTICES),
+        };
+
+        unsafe {
+            glGenVertexArrays(1, &mut renderer.vao);
+            glBindVertexArray(renderer.vao);
+
+            glGenBuffers(1, &mut renderer.vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, renderer.vbo);
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                (size_of::<Vertex>() * MAX_VERTICES) as isize,
+                renderer.vertices.as_ptr().cast(),
+                GL_DYNAMIC_DRAW,
+            );
+
+            // position
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(
+                0, // location 0
+                2, // 2 values (V2)
+                GL_FLOAT,
+                GL_FALSE.0 as u8,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
+
+            // color
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(
+                1, // location 1
+                4, // 4 values (V4)
+                GL_FLOAT,
+                GL_FALSE.0 as u8,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, color) as *const _,
+            );
+
+            // uv
+            glEnableVertexAttribArray(2);
+            glVertexAttribPointer(
+                2, // location 2
+                2, // 2 values (V2)
+                GL_FLOAT,
+                GL_FALSE.0 as u8,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, uv) as *const _,
+            );
         }
+
+        renderer
     }
 
     pub fn flush(&mut self) {
