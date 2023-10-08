@@ -16,22 +16,6 @@ type Vertex = [f32; 3];
 
 const VERTICES: [Vertex; 3] = [[-0.5, -0.5, 0.0], [0.5, -0.5, 0.0], [0.0, 0.5, 0.0]];
 
-const VERT_SHADER: &str = r#"#version 330 core
-  layout (location = 0) in vec3 pos;
-
-  void main() {
-    gl_Position = vec4(pos.x, pos.y, pos.z, 1.0);
-  }
-"#;
-
-const FRAG_SHADER: &str = r#"#version 330 core
-  out vec4 final_color;
-
-  void main() {
-    final_color = vec4(1.0, 0.5, 0.2, 1.0);
-  }
-"#;
-
 fn init_sdl() -> Result<Sdl, EdiError> {
     let sdl = Sdl::init(InitFlags::VIDEO | InitFlags::EVENTS);
     sdl.set_gl_context_major_version(3).map_err(sdl_error)?;
@@ -62,7 +46,12 @@ fn run() -> Result<(), EdiError> {
         resizable: true,
     };
 
+    let vert_glsl = std::fs::read_to_string("vert.glsl")?;
+    let frag_glsl = std::fs::read_to_string("frag.glsl")?;
+
     let win = sdl.create_gl_window(win_args).map_err(sdl_error)?;
+    win.set_swap_interval(video::GlSwapInterval::Vsync)
+        .map_err(sdl_error)?;
 
     unsafe {
         load_global_gl(&|f_name| win.get_proc_address(f_name));
@@ -100,8 +89,8 @@ fn run() -> Result<(), EdiError> {
         glShaderSource(
             vertex_shader,
             1,
-            &(VERT_SHADER.as_bytes().as_ptr().cast()),
-            &(VERT_SHADER.len().try_into().unwrap()),
+            &(vert_glsl.as_bytes().as_ptr().cast()),
+            &(vert_glsl.len().try_into().unwrap()),
         );
         glCompileShader(vertex_shader);
         let mut success = 0;
@@ -119,8 +108,8 @@ fn run() -> Result<(), EdiError> {
         glShaderSource(
             fragment_shader,
             1,
-            &(FRAG_SHADER.as_bytes().as_ptr().cast()),
-            &(FRAG_SHADER.len().try_into().unwrap()),
+            &(frag_glsl.as_bytes().as_ptr().cast()),
+            &(frag_glsl.len().try_into().unwrap()),
         );
         glCompileShader(fragment_shader);
         let mut success = 0;
