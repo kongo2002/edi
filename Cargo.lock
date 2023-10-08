@@ -73,6 +73,7 @@ name = "edi"
 version = "0.1.0"
 dependencies = [
  "beryllium",
+ "bytemuck",
  "freetype-rs",
  "gl33",
  "thiserror",
