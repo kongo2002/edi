@@ -43,6 +43,7 @@ const FONT_PIXEL_HEIGHT: u32 = 256;
 
 impl FontAtlas {
     pub fn new(font: &str) -> Result<FontAtlas, EdiError> {
+        // TODO: consider using "crossfont" instead
         let library = freetype::Library::init()?;
         let face = library.new_face(font, 0)?;
 
