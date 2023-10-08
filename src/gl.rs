@@ -55,6 +55,18 @@ impl GL {
         glUseProgram(self.id)
     }
 
+    pub fn get_location(&self, name: &str) -> Result<i32, EdiError> {
+        unsafe {
+            let null_terminated = [name, "\0"].concat();
+            let loc = glGetUniformLocation(self.id, null_terminated.as_bytes().as_ptr());
+            if loc < 0 {
+                Err(EdiError::UniformLookupFailed(name.to_string()))
+            } else {
+                Ok(loc)
+            }
+        }
+    }
+
     pub fn create_shader(shader_type: ShaderType, shader_code: &str) -> Result<u32, EdiError> {
         let shader_id;
         unsafe {
