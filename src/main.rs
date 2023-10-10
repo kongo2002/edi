@@ -21,6 +21,8 @@ fn init_sdl() -> Result<Sdl, EdiError> {
     let sdl = Sdl::init(InitFlags::VIDEO | InitFlags::EVENTS);
     sdl.set_gl_context_major_version(3).map_err(sdl_error)?;
     sdl.set_gl_context_minor_version(3).map_err(sdl_error)?;
+    sdl.set_gl_profile(video::GlProfile::Core)
+        .map_err(sdl_error)?;
 
     #[cfg(target_os = "macos")]
     {
