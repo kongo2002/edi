@@ -74,6 +74,7 @@ version = "0.1.0"
 dependencies = [
  "beryllium",
  "bytemuck",
+ "fermium",
  "freetype-rs",
  "gl33",
  "thiserror",

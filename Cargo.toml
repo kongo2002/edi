@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 beryllium = "0.13.0"
 bytemuck = "1.14.0"
+fermium = "22605.0.0"
 freetype-rs = "0.33.0"
 gl33 = "0.2.1"
 thiserror = "1.0.49"

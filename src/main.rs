@@ -85,10 +85,30 @@ fn run() -> Result<(), EdiError> {
         scale_velocity: 1.0,
     };
 
+    let mut text = String::with_capacity(256);
+
     'main_loop: loop {
-        while let Some(event) = sdl.poll_events() {
+        while let Some((event, _ts)) = sdl.poll_events() {
             match event {
-                (events::Event::Quit, _) => break 'main_loop,
+                events::Event::Quit => break 'main_loop,
+                events::Event::TextInput {
+                    win_id: _,
+                    text: input,
+                } => text.push_str(&input),
+                events::Event::Key {
+                    win_id,
+                    pressed: true,
+                    repeat,
+                    scancode,
+                    keycode,
+                    modifiers,
+                } => match keycode {
+                    fermium::keycode::SDLK_BACKSPACE => {
+                        text.pop();
+                    }
+                    _ => (),
+                },
+
                 _ => (),
             }
         }
@@ -116,7 +136,7 @@ fn run() -> Result<(), EdiError> {
 
         renderer.render_text(
             &font_atlas,
-            "this is a test",
+            &text,
             V2 {
                 x: -500.0,
                 y: 300.0,
