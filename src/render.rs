@@ -1,5 +1,5 @@
 use std::mem::size_of;
-use std::ops::Add;
+use std::ops::{Add, Mul, Sub};
 
 use bytemuck::offset_of;
 use gl33::{global_loader::*, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, GL_FALSE, GL_FLOAT, GL_TRIANGLES};
@@ -21,6 +21,28 @@ impl Add<V2> for V2 {
         V2 {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
+        }
+    }
+}
+
+impl Sub<V2> for V2 {
+    type Output = V2;
+
+    fn sub(self, rhs: V2) -> Self::Output {
+        V2 {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+impl Mul<f32> for V2 {
+    type Output = V2;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        V2 {
+            x: self.x * rhs,
+            y: self.y * rhs,
         }
     }
 }

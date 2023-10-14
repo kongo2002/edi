@@ -8,10 +8,12 @@ use gl33::{
 
 use crate::gl::GL;
 
+use self::camera::Camera;
 use self::errors::EdiError;
 use self::font::FontAtlas;
 use self::render::{V2, V4};
 
+mod camera;
 mod errors;
 mod font;
 mod gl;
@@ -72,7 +74,16 @@ fn run() -> Result<(), EdiError> {
     program.use_program();
 
     let resolution_uniform = program.get_location("resolution")?;
+    let camera_pos = program.get_location("camera_pos")?;
+    let camera_scale = program.get_location("camera_scale")?;
     let font_atlas = FontAtlas::new("iosevka.ttf")?;
+
+    let camera = Camera {
+        pos: V2::default(),
+        velocity: V2::default(),
+        scale: 1.0,
+        scale_velocity: 1.0,
+    };
 
     'main_loop: loop {
         while let Some(event) = sdl.poll_events() {
@@ -85,11 +96,15 @@ fn run() -> Result<(), EdiError> {
         let (win_width, win_height) = win.get_window_size();
 
         unsafe {
+            // TODO: necessary all the time?
             glViewport(0, 0, win_width, win_height);
             glClearColor(0.2, 0.3, 0.3, 1.0);
             glClear(GL_COLOR_BUFFER_BIT);
 
             glUniform2f(resolution_uniform, win_width as f32, win_height as f32);
+
+            glUniform1f(camera_scale, camera.scale);
+            glUniform2f(camera_pos, camera.pos.x, camera.pos.y);
         }
 
         let color = V4 {
