@@ -210,12 +210,7 @@ impl Renderer {
 
     pub fn render_text(&mut self, atlas: &FontAtlas, text: &str, mut pos: V2, color: V4) {
         for c in text.chars() {
-            let idx = if c as usize >= 128 {
-                '?' as usize
-            } else {
-                c as usize
-            };
-            let glyph = &atlas.glyphs[idx];
+            let glyph = atlas.glyph(c);
 
             let x = pos.x + (glyph.bl as f32);
             let y = -pos.y - (glyph.bt as f32);

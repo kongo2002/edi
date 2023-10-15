@@ -76,7 +76,7 @@ fn run() -> Result<(), EdiError> {
     let camera = Camera {
         pos: V2::default(),
         velocity: V2::default(),
-        scale: 1.0,
+        scale: 0.3,
         scale_velocity: 1.0,
     };
 
@@ -93,12 +93,12 @@ fn run() -> Result<(), EdiError> {
                     text: input,
                 } => text.push_str(&input),
                 events::Event::Key {
-                    win_id,
+                    win_id: _,
                     pressed: true,
-                    repeat,
-                    scancode,
+                    repeat: _,
+                    scancode: _,
                     keycode,
-                    modifiers,
+                    modifiers: _,
                 } => match keycode {
                     fermium::keycode::SDLK_BACKSPACE => {
                         text.pop();
@@ -131,12 +131,14 @@ fn run() -> Result<(), EdiError> {
                 a: 1.0,
             };
 
-            renderer.render_text(&font_atlas, &text, (-500.0, 300.0).into(), text_color);
+            renderer.render_text(&font_atlas, &text, (0.0, 0.0).into(), text_color);
             renderer.flush();
         }
 
         // render cursor
         {
+            const CURSOR_OFFSET: f32 = 0.13;
+
             color_shader.activate(&resolution, &camera);
 
             let cursor_size = ((FONT_PIXEL_HEIGHT as f32) / 6.0, FONT_PIXEL_HEIGHT as f32);
@@ -147,7 +149,13 @@ fn run() -> Result<(), EdiError> {
                 a: 1.0,
             };
 
-            renderer.render_solid_rect((-400.0, 300.0).into(), cursor_size.into(), cursor_color);
+            let line_idx = 0.0;
+            let cursor_pos = (
+                font_atlas.line_width(&text),
+                (-(line_idx + CURSOR_OFFSET)) * (FONT_PIXEL_HEIGHT as f32),
+            );
+
+            renderer.render_solid_rect(cursor_pos.into(), cursor_size.into(), cursor_color);
             renderer.flush();
         }
 
