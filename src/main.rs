@@ -1,16 +1,13 @@
 use beryllium::error::SdlError;
 use beryllium::init::InitFlags;
 use beryllium::{events, video, Sdl};
-use gl33::{
-    global_loader::*, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_FRAGMENT_SHADER, GL_ONE_MINUS_SRC_ALPHA,
-    GL_SRC_ALPHA, GL_VERTEX_SHADER,
-};
+use gl33::{global_loader::*, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA};
 
 use crate::gl::GL;
 
 use self::camera::Camera;
 use self::errors::EdiError;
-use self::font::FontAtlas;
+use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
 use self::render::{V2, V4};
 
 mod camera;
@@ -138,6 +135,7 @@ fn run() -> Result<(), EdiError> {
         {
             color_shader.activate(&resolution, &camera);
 
+            let cursor_size = ((FONT_PIXEL_HEIGHT as f32) / 6.0, FONT_PIXEL_HEIGHT as f32);
             let cursor_color = V4 {
                 x: 1.0,
                 y: 0.3,
@@ -145,7 +143,7 @@ fn run() -> Result<(), EdiError> {
                 a: 1.0,
             };
 
-            renderer.render_solid_rect((-400.0, 300.0).into(), (10.0, 30.0).into(), cursor_color);
+            renderer.render_solid_rect((-400.0, 300.0).into(), cursor_size.into(), cursor_color);
             renderer.flush();
         }
 

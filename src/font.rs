@@ -1,8 +1,8 @@
 use freetype::face::LoadFlag;
 use gl33::{
-    global_loader::*, GL_LINEAR, GL_RED, GL_TEXTURE0, GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-    GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T, GL_UNPACK_ALIGNMENT,
-    GL_UNSIGNED_BYTE, GL_CLAMP_TO_EDGE,
+    global_loader::*, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED, GL_TEXTURE0, GL_TEXTURE_2D,
+    GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
+    GL_UNPACK_ALIGNMENT, GL_UNSIGNED_BYTE,
 };
 
 use crate::errors::EdiError;
@@ -39,7 +39,7 @@ pub struct FontAtlas {
     pub glyphs: [GlyphInfo; 128],
 }
 
-const FONT_PIXEL_HEIGHT: u32 = 256;
+pub const FONT_PIXEL_HEIGHT: u32 = 256;
 
 impl FontAtlas {
     pub fn new(font: &str) -> Result<FontAtlas, EdiError> {
