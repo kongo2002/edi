@@ -1,6 +1,7 @@
 use beryllium::error::SdlError;
 use beryllium::init::InitFlags;
 use beryllium::{events, video, Sdl};
+use fermium::timer::SDL_Delay;
 use gl33::{global_loader::*, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA};
 
 use crate::gl::GL;
@@ -15,6 +16,9 @@ mod errors;
 mod font;
 mod gl;
 mod render;
+
+const FPS: u32 = 60;
+const DELTA_TIME_MS: u32 = 1000 / FPS;
 
 fn init_sdl() -> Result<Sdl, EdiError> {
     let sdl = Sdl::init(InitFlags::VIDEO | InitFlags::EVENTS);
@@ -53,8 +57,6 @@ fn run() -> Result<(), EdiError> {
     let color_frag_glsl = std::fs::read_to_string("shaders/color.glsl")?;
 
     let win = sdl.create_gl_window(win_args).map_err(sdl_error)?;
-    win.set_swap_interval(video::GlSwapInterval::Vsync)
-        .map_err(sdl_error)?;
 
     unsafe {
         load_global_gl(&|f_name| win.get_proc_address(f_name));
@@ -81,6 +83,8 @@ fn run() -> Result<(), EdiError> {
     let mut text = String::with_capacity(256);
 
     'main_loop: loop {
+        let start = sdl.get_ticks();
+
         while let Some((event, _ts)) = sdl.poll_events() {
             match event {
                 events::Event::Quit => break 'main_loop,
@@ -148,6 +152,15 @@ fn run() -> Result<(), EdiError> {
         }
 
         win.swap_window();
+
+        let finished = sdl.get_ticks();
+        let duration = finished - start;
+
+        if duration < DELTA_TIME_MS {
+            unsafe {
+                SDL_Delay(DELTA_TIME_MS - duration);
+            }
+        }
     }
 
     Ok(())
