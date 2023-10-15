@@ -1,37 +1,73 @@
-use gl33::{global_loader::*, ShaderType, GL_COMPILE_STATUS, GL_LINK_STATUS};
+use gl33::{
+    global_loader::*, ShaderType, GL_COMPILE_STATUS, GL_FRAGMENT_SHADER, GL_LINK_STATUS,
+    GL_VERTEX_SHADER,
+};
 
+use crate::camera::Camera;
 use crate::errors::EdiError;
+use crate::render::V2;
 
 const ERROR_BUFFER_SIZE: usize = 1024;
 
 pub struct GL {
-    pub id: u32,
+    programs: Vec<Shader>,
+}
+
+#[derive(Clone)]
+pub struct Shader {
+    program: u32,
+
+    resolution_uniform: i32,
+    camera_pos_uniform: i32,
+    camera_scale_uniform: i32,
+}
+
+impl Shader {
+    pub fn activate(&self, resolution: &V2, camera: &Camera) {
+        glUseProgram(self.program);
+
+        unsafe {
+            glUniform2f(self.resolution_uniform, resolution.x, resolution.y);
+
+            glUniform1f(self.camera_scale_uniform, camera.scale);
+            glUniform2f(self.camera_pos_uniform, camera.pos.x, camera.pos.y);
+        }
+    }
 }
 
 impl GL {
-    pub fn create_program(shaders: &[u32]) -> Result<GL, EdiError> {
-        let id;
+    pub fn new() -> GL {
+        GL {
+            programs: Vec::new(),
+        }
+    }
+
+    pub fn create_program(&mut self, vertex: &str, fragment: &str) -> Result<Shader, EdiError> {
+        let program;
+
+        let vertex_shader = Self::create_shader(GL_VERTEX_SHADER, vertex)?;
+        let fragment_shader = Self::create_shader(GL_FRAGMENT_SHADER, fragment)?;
 
         unsafe {
-            id = glCreateProgram();
-            if id == 0 {
+            program = glCreateProgram();
+            if program == 0 {
                 return Err(EdiError::ProgramCreationFailed);
             }
 
-            for shader_id in shaders {
-                glAttachShader(id, *shader_id);
+            for shader_id in &[vertex_shader, fragment_shader] {
+                glAttachShader(program, *shader_id);
             }
 
-            glLinkProgram(id);
+            glLinkProgram(program);
 
             let mut success = 0;
-            glGetProgramiv(id, GL_LINK_STATUS, &mut success);
+            glGetProgramiv(program, GL_LINK_STATUS, &mut success);
             if success == 0 {
                 let mut v: Vec<u8> = Vec::with_capacity(ERROR_BUFFER_SIZE);
                 let mut log_len = 0_i32;
 
                 glGetProgramInfoLog(
-                    id,
+                    program,
                     ERROR_BUFFER_SIZE as i32,
                     &mut log_len,
                     v.as_mut_ptr().cast(),
@@ -43,22 +79,31 @@ impl GL {
                 ));
             }
 
-            for shader_id in shaders {
+            for shader_id in &[vertex_shader, fragment_shader] {
                 glDeleteShader(*shader_id);
             }
         }
 
-        Ok(GL { id })
+        let resolution_uniform = Self::get_location(program, "resolution")?;
+        let camera_pos_uniform = Self::get_location(program, "camera_pos")?;
+        let camera_scale_uniform = Self::get_location(program, "camera_scale")?;
+
+        let shader = Shader {
+            program,
+            resolution_uniform,
+            camera_pos_uniform,
+            camera_scale_uniform,
+        };
+
+        self.programs.push(shader.clone());
+
+        Ok(shader)
     }
 
-    pub fn use_program(&self) {
-        glUseProgram(self.id)
-    }
-
-    pub fn get_location(&self, name: &str) -> Result<i32, EdiError> {
+    fn get_location(program: u32, name: &str) -> Result<i32, EdiError> {
         unsafe {
             let null_terminated = [name, "\0"].concat();
-            let loc = glGetUniformLocation(self.id, null_terminated.as_bytes().as_ptr());
+            let loc = glGetUniformLocation(program, null_terminated.as_bytes().as_ptr());
             if loc < 0 {
                 Err(EdiError::UniformLookupFailed(name.to_string()))
             } else {
@@ -67,7 +112,7 @@ impl GL {
         }
     }
 
-    pub fn create_shader(shader_type: ShaderType, shader_code: &str) -> Result<u32, EdiError> {
+    fn create_shader(shader_type: ShaderType, shader_code: &str) -> Result<u32, EdiError> {
         let shader_id;
         unsafe {
             shader_id = glCreateShader(shader_type);

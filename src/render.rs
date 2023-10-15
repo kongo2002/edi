@@ -14,6 +14,24 @@ pub struct V2 {
     pub y: f32,
 }
 
+impl From<(f32, f32)> for V2 {
+    fn from(value: (f32, f32)) -> Self {
+        V2 {
+            x: value.0,
+            y: value.1,
+        }
+    }
+}
+
+impl From<(i32, i32)> for V2 {
+    fn from(value: (i32, i32)) -> Self {
+        V2 {
+            x: value.0 as f32,
+            y: value.1 as f32,
+        }
+    }
+}
+
 impl Add<V2> for V2 {
     type Output = V2;
 
@@ -158,6 +176,20 @@ impl Renderer {
     pub fn render_quad(&mut self, v0: Vertex, v1: Vertex, v2: Vertex, v3: Vertex) {
         self.render_triangle(v0, v1, v2);
         self.render_triangle(v1, v2, v3);
+    }
+
+    pub fn render_solid_rect(&mut self, p: V2, s: V2, c: V4) {
+        let uvp = V2::default();
+        let p1 = p + V2 { x: s.x, y: 0.0 };
+        let p2 = p + V2 { x: 0.0, y: s.y };
+        let p3 = p + s;
+
+        self.render_quad(
+            Vertex::new(p, c, uvp),
+            Vertex::new(p1, c, uvp),
+            Vertex::new(p2, c, uvp),
+            Vertex::new(p3, c, uvp),
+        )
     }
 
     pub fn render_image_rect(&mut self, p: V2, s: V2, uvp: V2, uvs: V2, c: V4) {
