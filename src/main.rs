@@ -2,7 +2,10 @@ use beryllium::error::SdlError;
 use beryllium::init::InitFlags;
 use beryllium::{events, video, Sdl};
 use fermium::timer::SDL_Delay;
-use gl33::{global_loader::*, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA};
+use gl33::{
+    global_loader::*, GL_BLEND, GL_COLOR_BUFFER_BIT, GL_MULTISAMPLE, GL_ONE_MINUS_SRC_ALPHA,
+    GL_SRC_ALPHA,
+};
 
 use crate::gl::GL;
 
@@ -19,6 +22,64 @@ mod render;
 
 const FPS: u32 = 60;
 const DELTA_TIME_MS: u32 = 1000 / FPS;
+
+#[derive(PartialEq)]
+enum CooldownState {
+    Active,
+    OnCooldown,
+}
+
+struct Cooldown {
+    cooldown: f32,
+    duration: f32,
+    current: f32,
+    state: CooldownState,
+}
+
+impl Cooldown {
+    pub fn new(duration: f32, cooldown: f32) -> Cooldown {
+        Cooldown {
+            cooldown,
+            duration,
+            current: 0.0,
+            state: CooldownState::Active,
+        }
+    }
+
+    pub fn reset(&mut self, state: CooldownState) {
+        self.state = state;
+        match self.state {
+            CooldownState::Active => self.current = self.duration,
+            CooldownState::OnCooldown => self.current = self.cooldown,
+        }
+    }
+
+    pub fn update(&mut self, delta: f32) {
+        match self.state {
+            CooldownState::Active => {
+                if self.current > delta {
+                    self.current -= delta;
+                } else {
+                    self.current = self.cooldown;
+                    self.state = CooldownState::OnCooldown;
+                }
+            }
+            CooldownState::OnCooldown => {
+                if self.current > delta {
+                    self.current -= delta;
+                } else {
+                    self.current = self.duration;
+                    self.state = CooldownState::Active;
+                }
+            }
+        }
+    }
+}
+
+struct Cursor {
+    pos: V2,
+    cd: Cooldown,
+}
 
 fn init_sdl() -> Result<Sdl, EdiError> {
     let sdl = Sdl::init(InitFlags::VIDEO | InitFlags::EVENTS);
@@ -62,6 +123,7 @@ fn run() -> Result<(), EdiError> {
         load_global_gl(&|f_name| win.get_proc_address(f_name));
 
         glEnable(GL_BLEND);
+        glEnable(GL_MULTISAMPLE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
@@ -80,7 +142,12 @@ fn run() -> Result<(), EdiError> {
         scale_velocity: 1.0,
     };
 
-    let mut text = String::with_capacity(256);
+    let mut cursor = Cursor {
+        pos: (0, 0).into(),
+        cd: Cooldown::new(400.0, 600.0),
+    };
+
+    let mut lines = vec![String::new()];
 
     'main_loop: loop {
         let start = sdl.get_ticks();
@@ -91,7 +158,10 @@ fn run() -> Result<(), EdiError> {
                 events::Event::TextInput {
                     win_id: _,
                     text: input,
-                } => text.push_str(&input),
+                } => {
+                    lines.last_mut().map(|line| line.push_str(&input));
+                    cursor.cd.reset(CooldownState::Active);
+                }
                 events::Event::Key {
                     win_id: _,
                     pressed: true,
@@ -101,7 +171,12 @@ fn run() -> Result<(), EdiError> {
                     modifiers: _,
                 } => match keycode {
                     fermium::keycode::SDLK_BACKSPACE => {
-                        text.pop();
+                        lines.last_mut().map(|line| line.pop());
+                        cursor.cd.reset(CooldownState::Active);
+                    }
+                    fermium::keycode::SDLK_RETURN => {
+                        lines.push(String::new());
+                        cursor.cd.reset(CooldownState::Active);
                     }
                     _ => (),
                 },
@@ -109,6 +184,8 @@ fn run() -> Result<(), EdiError> {
                 _ => (),
             }
         }
+
+        cursor.cd.update(DELTA_TIME_MS as f32);
 
         let (win_width, win_height) = win.get_window_size().into();
         let resolution = (win_width, win_height).into();
@@ -131,12 +208,16 @@ fn run() -> Result<(), EdiError> {
                 a: 1.0,
             };
 
-            renderer.render_text(&font_atlas, &text, (0.0, 0.0).into(), text_color);
+            let mut y_offset = 0.0;
+            for line in &lines {
+                renderer.render_text(&font_atlas, &line, (0.0, y_offset).into(), text_color);
+                y_offset -= FONT_PIXEL_HEIGHT as f32;
+            }
             renderer.flush();
         }
 
         // render cursor
-        {
+        if cursor.cd.state == CooldownState::Active {
             const CURSOR_OFFSET: f32 = 0.13;
 
             color_shader.activate(&resolution, &camera);
@@ -149,9 +230,13 @@ fn run() -> Result<(), EdiError> {
                 a: 1.0,
             };
 
-            let line_idx = 0.0;
+            let line_idx = (lines.len() as f32) - 1.0;
+            let line_width = lines
+                .last()
+                .map(|line| font_atlas.line_width(line))
+                .unwrap_or(0.0);
             let cursor_pos = (
-                font_atlas.line_width(&text),
+                line_width,
                 (-(line_idx + CURSOR_OFFSET)) * (FONT_PIXEL_HEIGHT as f32),
             );
 
