@@ -1,10 +1,14 @@
 use std::mem::size_of;
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 use bytemuck::offset_of;
 use gl33::{global_loader::*, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, GL_FALSE, GL_FLOAT, GL_TRIANGLES};
 
 use crate::font::FontAtlas;
+
+pub const FPS: u32 = 60;
+pub const DELTA_TIME_MS: u32 = 1000 / FPS;
+pub const DELTA_TIME: f32 = 1000.0 / (FPS as f32);
 
 const MAX_VERTICES: usize = 10 * 640 * 1000;
 
@@ -61,6 +65,17 @@ impl Mul<f32> for V2 {
         V2 {
             x: self.x * rhs,
             y: self.y * rhs,
+        }
+    }
+}
+
+impl Div<f32> for V2 {
+    type Output = V2;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        V2 {
+            x: self.x / rhs,
+            y: self.y / rhs,
         }
     }
 }

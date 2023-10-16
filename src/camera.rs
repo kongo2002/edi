@@ -1,6 +1,4 @@
-use crate::render::V2;
-
-const DELTA_TIME: f32 = 1.0 / 60.0;
+use crate::render::{DELTA_TIME, V2};
 
 pub struct Camera {
     pub pos: V2,
