@@ -55,7 +55,7 @@ impl FontAtlas {
         for i in 32..128usize {
             face.load_char(i, LoadFlag::RENDER)?;
 
-            atlas_width += face.glyph().raw().bitmap.width;
+            atlas_width += face.glyph().raw().bitmap.width + 1;
             atlas_height = atlas_height.max(face.glyph().raw().bitmap.rows);
         }
 
@@ -106,16 +106,16 @@ impl FontAtlas {
                 glTexSubImage2D(
                     GL_TEXTURE_2D,
                     0,
-                    x as i32,
+                    x,
                     0,
-                    glyphs[i].bw as i32,
-                    glyphs[i].bh as i32,
+                    glyphs[i].bw,
+                    glyphs[i].bh,
                     GL_RED,
                     GL_UNSIGNED_BYTE,
                     face.glyph().bitmap().raw().buffer as *const _,
                 );
 
-                x += glyphs[i].bw;
+                x += glyphs[i].bw + 1;
             }
         }
 

@@ -88,6 +88,21 @@ pub struct V4 {
     pub a: f32,
 }
 
+impl V4 {
+    pub fn rgb(r: f32, g: f32, b: f32) -> V4 {
+        V4::rgba(r, g, b, 1.0)
+    }
+
+    pub fn rgba(r: f32, g: f32, b: f32, a: f32) -> V4 {
+        V4 {
+            x: r,
+            y: g,
+            z: b,
+            a,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct Vertex {
     pub pos: V2,

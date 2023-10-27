@@ -18,6 +18,7 @@ use self::render::{DELTA_TIME, DELTA_TIME_MS, V4};
 mod camera;
 mod cooldown;
 mod cursor;
+mod editor;
 mod errors;
 mod font;
 mod gl;
@@ -78,12 +79,7 @@ fn run() -> Result<(), EdiError> {
     let font_atlas = FontAtlas::new("iosevka.ttf")?;
 
     let mut camera = Camera::new();
-    let mut cursor = Cursor::new(V4 {
-        x: 1.0,
-        y: 0.3,
-        z: 0.3,
-        a: 1.0,
-    });
+    let mut cursor = Cursor::new(V4::rgb(1.0, 0.3, 0.3));
     let mut lines = vec![String::new()];
 
     'main_loop: loop {
@@ -142,12 +138,7 @@ fn run() -> Result<(), EdiError> {
         {
             text_shader.activate(&resolution, &camera);
 
-            let text_color = V4 {
-                x: 1.0,
-                y: 1.0,
-                z: 0.1,
-                a: 1.0,
-            };
+            let text_color = V4::rgb(1.0, 1.0, 0.1);
 
             let mut y_offset = 0.0;
             for line in &lines {

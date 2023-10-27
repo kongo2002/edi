@@ -25,7 +25,7 @@ impl Camera {
 
     pub fn target(&mut self, target: V2, max_line_length: f32, win_width: f32) {
         self.target = target;
-        self.target_scale = (win_width / 1.0 / (max_line_length.max(1.0) * 0.75))
+        self.target_scale = (win_width / 1.0 / (max_line_length.max(1.0) * 0.55))
             .max(0.05)
             .min(0.3);
     }
