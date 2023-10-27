@@ -15,7 +15,7 @@ const DIST_THRESHOLD_SQRD: f32 =
     CURSOR_MAX_SPEED * CURSOR_MAX_SPEED * DELTA_TIME * DELTA_TIME * 1.05;
 
 pub struct Cursor {
-    pos: V2,
+    pub pos: V2,
     color: V4,
     target: V2,
     vel: V2,

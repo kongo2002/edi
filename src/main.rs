@@ -13,7 +13,7 @@ use self::camera::Camera;
 use self::cursor::{Cursor, CURSOR_OFFSET};
 use self::errors::EdiError;
 use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
-use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
+use self::render::{DELTA_TIME, DELTA_TIME_MS, V4};
 
 mod camera;
 mod cooldown;
@@ -77,13 +77,7 @@ fn run() -> Result<(), EdiError> {
 
     let font_atlas = FontAtlas::new("iosevka.ttf")?;
 
-    let camera = Camera {
-        pos: V2::default(),
-        velocity: V2::default(),
-        scale: 0.3,
-        scale_velocity: 1.0,
-    };
-
+    let mut camera = Camera::new();
     let mut cursor = Cursor::new(V4 {
         x: 1.0,
         y: 0.3,
@@ -132,6 +126,7 @@ fn run() -> Result<(), EdiError> {
         }
 
         cursor.update(DELTA_TIME);
+        camera.update(DELTA_TIME);
 
         let (win_width, win_height) = win.get_window_size().into();
         let resolution = (win_width, win_height).into();
@@ -139,7 +134,7 @@ fn run() -> Result<(), EdiError> {
         unsafe {
             // TODO: necessary all the time?
             glViewport(0, 0, win_width, win_width);
-            glClearColor(0.2, 0.3, 0.3, 1.0);
+            glClearColor(0.1, 0.1, 0.1, 1.0);
             glClear(GL_COLOR_BUFFER_BIT);
         }
 
@@ -162,23 +157,28 @@ fn run() -> Result<(), EdiError> {
             renderer.flush();
         }
 
+        let line_idx = (lines.len() as f32) - 1.0;
+        let line_width = lines
+            .last()
+            .map(|line| font_atlas.line_width(line))
+            .unwrap_or(0.0);
+        let cursor_pos = (
+            line_width,
+            (-(line_idx + CURSOR_OFFSET)) * (FONT_PIXEL_HEIGHT as f32),
+        );
+
+        cursor.move_to(cursor_pos);
+
+        // TODO: calculate max line length while rendering?
+        let max_line_length = lines.iter().map(|line| line.len()).max().unwrap_or(0) as f32
+            * font_atlas.glyph('?').ax;
+
+        camera.target(cursor.pos, max_line_length, win_width as f32);
+
         // render cursor
         if cursor.visible() {
             color_shader.activate(&resolution, &camera);
-
-            let line_idx = (lines.len() as f32) - 1.0;
-            let line_width = lines
-                .last()
-                .map(|line| font_atlas.line_width(line))
-                .unwrap_or(0.0);
-            let cursor_pos = (
-                line_width,
-                (-(line_idx + CURSOR_OFFSET)) * (FONT_PIXEL_HEIGHT as f32),
-            );
-
-            cursor.move_to(cursor_pos);
             cursor.render(&mut renderer);
-
             renderer.flush();
         }
 

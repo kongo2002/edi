@@ -12,7 +12,7 @@ pub const DELTA_TIME: f32 = 1000.0 / (FPS as f32);
 
 const MAX_VERTICES: usize = 10 * 640 * 1000;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct V2 {
     pub x: f32,
     pub y: f32,
