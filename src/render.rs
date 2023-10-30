@@ -69,6 +69,17 @@ impl Mul<f32> for V2 {
     }
 }
 
+impl Mul<V2> for V2 {
+    type Output = V2;
+
+    fn mul(self, rhs: V2) -> Self::Output {
+        V2 {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+        }
+    }
+}
+
 impl Div<f32> for V2 {
     type Output = V2;
 
@@ -238,7 +249,9 @@ impl Renderer {
         )
     }
 
-    pub fn render_text(&mut self, atlas: &FontAtlas, text: &str, mut pos: V2, color: V4) {
+    pub fn render_text(&mut self, atlas: &FontAtlas, text: &str, mut pos: V2, color: V4) -> f32 {
+        let mut width = 0.0;
+
         for c in text.chars() {
             let glyph = atlas.glyph(c);
 
@@ -264,6 +277,10 @@ impl Renderer {
                 },
                 color,
             );
+
+            width += glyph.ax;
         }
+
+        width
     }
 }

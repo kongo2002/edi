@@ -11,9 +11,10 @@ use crate::gl::GL;
 
 use self::camera::Camera;
 use self::cursor::{Cursor, CURSOR_OFFSET};
+use self::editor::Editor;
 use self::errors::EdiError;
 use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
-use self::render::{DELTA_TIME, DELTA_TIME_MS, V4};
+use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
 
 mod camera;
 mod cooldown;
@@ -78,9 +79,14 @@ fn run() -> Result<(), EdiError> {
 
     let font_atlas = FontAtlas::new("iosevka.ttf")?;
 
+    let mut editor = Editor::new();
     let mut camera = Camera::new();
-    let mut cursor = Cursor::new(V4::rgb(1.0, 0.3, 0.3));
-    let mut lines = vec![String::new()];
+    let mut cursor = Cursor::new(V4::rgba(1.0, 1.0, 1.0, 0.5));
+
+    let cursor_size = V2 {
+        x: font_atlas.glyph('?').ax,
+        y: -(FONT_PIXEL_HEIGHT as f32),
+    };
 
     'main_loop: loop {
         let start = sdl.get_ticks();
@@ -92,7 +98,7 @@ fn run() -> Result<(), EdiError> {
                     win_id: _,
                     text: input,
                 } => {
-                    lines.last_mut().map(|line| line.push_str(&input));
+                    editor.insert(&input);
                     cursor.active();
                 }
                 events::Event::Key {
@@ -104,14 +110,11 @@ fn run() -> Result<(), EdiError> {
                     modifiers: _,
                 } => match keycode {
                     fermium::keycode::SDLK_BACKSPACE => {
-                        if lines.last_mut().and_then(|line| line.pop()).is_none() && lines.len() > 1
-                        {
-                            lines.pop();
-                        }
+                        editor.delete();
                         cursor.active();
                     }
                     fermium::keycode::SDLK_RETURN => {
-                        lines.push(String::new());
+                        editor.new_line();
                         cursor.active();
                     }
                     _ => (),
@@ -134,6 +137,8 @@ fn run() -> Result<(), EdiError> {
             glClear(GL_COLOR_BUFFER_BIT);
         }
 
+        let mut max_line_length = 0.0f32;
+
         // render text
         {
             text_shader.activate(&resolution, &camera);
@@ -141,36 +146,37 @@ fn run() -> Result<(), EdiError> {
             let text_color = V4::rgb(1.0, 1.0, 0.1);
 
             let mut y_offset = 0.0;
-            for line in &lines {
-                renderer.render_text(&font_atlas, &line, (0.0, y_offset).into(), text_color);
+
+            for line in editor.iter() {
+                let mut x_offset = 0.0;
+
+                for word in line {
+                    x_offset += renderer.render_text(
+                        &font_atlas,
+                        word,
+                        (x_offset, y_offset).into(),
+                        text_color,
+                    );
+                }
+
                 y_offset -= FONT_PIXEL_HEIGHT as f32;
+                max_line_length = max_line_length.max(x_offset);
             }
             renderer.flush();
         }
 
-        let line_idx = (lines.len() as f32) - 1.0;
-        let line_width = lines
-            .last()
-            .map(|line| font_atlas.line_width(line))
-            .unwrap_or(0.0);
-        let cursor_pos = (
-            line_width,
-            (-(line_idx + CURSOR_OFFSET)) * (FONT_PIXEL_HEIGHT as f32),
-        );
-
-        cursor.move_to(cursor_pos);
-
-        // TODO: calculate max line length while rendering?
-        let max_line_length = lines.iter().map(|line| line.len()).max().unwrap_or(0) as f32
-            * font_atlas.glyph('?').ax;
-
-        camera.target(cursor.pos, max_line_length, win_width as f32);
-
         // render cursor
-        if cursor.visible() {
-            color_shader.activate(&resolution, &camera);
-            cursor.render(&mut renderer);
-            renderer.flush();
+        {
+            let cursor_target = (editor.cursor() + (0.0, CURSOR_OFFSET).into()) * cursor_size;
+            cursor.move_to(cursor_target);
+
+            camera.target(cursor.pos, max_line_length, win_width as f32);
+
+            if cursor.visible() {
+                color_shader.activate(&resolution, &camera);
+                cursor.render(&mut renderer);
+                renderer.flush();
+            }
         }
 
         win.swap_window();
