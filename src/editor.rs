@@ -2,7 +2,14 @@ use crate::render::V2;
 
 const INITIAL_BUFFER_SIZE: usize = 10 * 1024;
 
+#[derive(PartialEq)]
+pub enum Mode {
+    Normal,
+    Insert,
+}
+
 pub struct Editor {
+    pub mode: Mode,
     buffer: String,
     lines: Vec<Line>,
     cursor: Pos,
@@ -57,6 +64,16 @@ struct Line {
     tokens: Vec<Token>,
 }
 
+impl Line {
+    fn start(&self) -> usize {
+        if self.tokens.is_empty() {
+            0
+        } else {
+            self.tokens[0].idx()
+        }
+    }
+}
+
 enum Token {
     Word { idx: usize, len: usize },
     Space { idx: usize, len: usize },
@@ -93,6 +110,13 @@ impl Pos {
         self.col += offset;
     }
 
+    fn prev(&mut self, offset: usize) {
+        if self.col >= offset {
+            self.col -= offset;
+            self.idx -= offset;
+        }
+    }
+
     fn new_line(&mut self) {
         self.idx += 1;
         self.col = 0;
@@ -103,6 +127,7 @@ impl Pos {
 impl Editor {
     pub fn new() -> Editor {
         Editor {
+            mode: Mode::Normal,
             buffer: String::with_capacity(INITIAL_BUFFER_SIZE),
             lines: vec![Line { tokens: Vec::new() }],
             cursor: Pos {
@@ -124,6 +149,55 @@ impl Editor {
         LineIter {
             editor: self,
             idx: 0,
+        }
+    }
+
+    pub fn exit_insert(&mut self) {
+        if self.mode == Mode::Insert {
+            self.mode = Mode::Normal
+        }
+    }
+
+    pub fn enter_insert(&mut self) {
+        if self.mode == Mode::Normal {
+            self.mode = Mode::Insert
+        }
+    }
+
+    pub fn move_left(&mut self) {
+        self.cursor.prev(1);
+    }
+
+    pub fn move_right(&mut self) {
+        let line = &self.lines[self.cursor.line];
+        if self.cursor.col < self.line_len(line) {
+            self.cursor.next(1);
+        }
+    }
+
+    pub fn move_down(&mut self) {
+        if self.cursor.line + 1 < self.lines.len() {
+            self.cursor.line += 1;
+
+            let line = &self.lines[self.cursor.line];
+            let column = self.cursor.col.min(self.line_len(line));
+            let line_start_idx = line.start();
+
+            self.cursor.col = self.cursor.col.min(self.line_len(line));
+            self.cursor.idx = line_start_idx + column;
+        }
+    }
+
+    pub fn move_up(&mut self) {
+        if self.cursor.line > 0 {
+            self.cursor.line -= 1;
+
+            let line = &self.lines[self.cursor.line];
+            let column = self.cursor.col.min(self.line_len(line));
+            let line_start_idx = line.start();
+
+            self.cursor.col = column;
+            self.cursor.idx = line_start_idx + column;
         }
     }
 
@@ -149,20 +223,21 @@ impl Editor {
                 self.cursor.col -= 1;
             } else if self.cursor.line > 0 {
                 self.cursor.line -= 1;
-
-                // move to previous line's end
-                let previous_end = WordIter {
-                    editor: self,
-                    line: &self.lines[self.cursor.line],
-                    idx: 0,
-                }
-                .map(|word| word.len())
-                .sum();
-
-                self.cursor.col = previous_end;
+                self.cursor.col = self.line_len(&self.lines[self.cursor.line]);
             }
             self.tokenize();
         }
+    }
+
+    fn line_len(&self, line: &Line) -> usize {
+        // move to previous line's end
+        WordIter {
+            editor: self,
+            line,
+            idx: 0,
+        }
+        .map(|word| word.len())
+        .sum()
     }
 
     fn tokenize(&mut self) {

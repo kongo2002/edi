@@ -36,7 +36,7 @@ impl Cursor {
     }
 
     pub fn render(&self, renderer: &mut Renderer) {
-        let cursor_size = ((FONT_PIXEL_HEIGHT as f32) / 6.0, FONT_PIXEL_HEIGHT as f32);
+        let cursor_size = ((FONT_PIXEL_HEIGHT as f32) / 3.0, FONT_PIXEL_HEIGHT as f32);
 
         renderer.render_solid_rect(self.pos, cursor_size.into(), self.color);
     }

@@ -11,7 +11,7 @@ use crate::gl::GL;
 
 use self::camera::Camera;
 use self::cursor::{Cursor, CURSOR_OFFSET};
-use self::editor::Editor;
+use self::editor::{Editor, Mode};
 use self::errors::EdiError;
 use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
 use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
@@ -98,8 +98,25 @@ fn run() -> Result<(), EdiError> {
                     win_id: _,
                     text: input,
                 } => {
-                    editor.insert(&input);
-                    cursor.active();
+                    if editor.mode == Mode::Insert {
+                        editor.insert(&input);
+                        cursor.active();
+                    } else if editor.mode == Mode::Normal && input == "i" {
+                        editor.enter_insert();
+                        cursor.active();
+                    } else if editor.mode == Mode::Normal && input == "h" {
+                        editor.move_left();
+                        cursor.active();
+                    } else if editor.mode == Mode::Normal && input == "j" {
+                        editor.move_down();
+                        cursor.active();
+                    } else if editor.mode == Mode::Normal && input == "l" {
+                        editor.move_right();
+                        cursor.active();
+                    } else if editor.mode == Mode::Normal && input == "k" {
+                        editor.move_up();
+                        cursor.active();
+                    }
                 }
                 events::Event::Key {
                     win_id: _,
@@ -109,6 +126,12 @@ fn run() -> Result<(), EdiError> {
                     keycode,
                     modifiers: _,
                 } => match keycode {
+                    fermium::keycode::SDLK_ESCAPE => {
+                        if editor.mode == Mode::Insert {
+                            editor.exit_insert();
+                            cursor.active();
+                        }
+                    }
                     fermium::keycode::SDLK_BACKSPACE => {
                         editor.delete();
                         cursor.active();

@@ -127,17 +127,6 @@ impl FontAtlas {
         })
     }
 
-    pub fn line_width(&self, line: &str) -> f32 {
-        let mut total_width = 0.0;
-
-        for chr in line.chars() {
-            let glyph = self.glyph(chr);
-            total_width += glyph.ax;
-        }
-
-        total_width
-    }
-
     pub fn glyph(&self, chr: char) -> &GlyphInfo {
         let idx = if chr as usize >= 128 {
             '?' as usize
