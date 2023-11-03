@@ -269,19 +269,12 @@ impl Editor {
     }
 
     pub fn append_line(&mut self) {
-        let current_line = self.line();
-        let line_end = current_line.end();
-
-        self.cursor.col = current_line.end() - current_line.start();
-        self.cursor.idx = line_end;
-
+        self.move_end_of_line();
         self.enter_insert();
     }
 
     pub fn prepend_line(&mut self) {
-        self.cursor.col = 0;
-        self.cursor.idx = self.line().start();
-
+        self.move_start_of_line();
         self.enter_insert();
     }
 
@@ -303,6 +296,21 @@ impl Editor {
         } else {
             None
         }
+    }
+
+    pub fn move_start_of_line(&mut self) {
+        let line_start = self.line().start();
+
+        self.cursor.col = 0;
+        self.cursor.idx = line_start;
+    }
+
+    pub fn move_end_of_line(&mut self) {
+        let current_line = self.line();
+        let line_end = current_line.end();
+
+        self.cursor.col = line_end - current_line.start();
+        self.cursor.idx = line_end;
     }
 
     pub fn move_down(&mut self) {

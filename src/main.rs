@@ -128,6 +128,12 @@ fn run() -> Result<(), EdiError> {
                     } else if input == "I" {
                         editor.prepend_line();
                         cursor.active();
+                    } else if input == "$" {
+                        editor.move_end_of_line();
+                        cursor.active();
+                    } else if input == "0" {
+                        editor.move_start_of_line();
+                        cursor.active();
                     }
                 }
                 events::Event::TextInput {
