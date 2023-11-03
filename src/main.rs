@@ -11,7 +11,7 @@ use crate::gl::GL;
 
 use self::camera::Camera;
 use self::cursor::{Cursor, CURSOR_OFFSET};
-use self::editor::{Editor, Mode};
+use self::editor::{CommandType, Editor, InputBuffer, Mode};
 use self::errors::EdiError;
 use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
 use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
@@ -82,6 +82,7 @@ fn run() -> Result<(), EdiError> {
     let mut editor = Editor::new();
     let mut camera = Camera::new();
     let mut cursor = Cursor::new(V4::rgba(1.0, 1.0, 1.0, 0.5));
+    let mut input_buffer = InputBuffer::new();
 
     let cursor_size = V2 {
         x: font_atlas.glyph('?').ax,
@@ -98,44 +99,23 @@ fn run() -> Result<(), EdiError> {
                     win_id: _,
                     text: input,
                 } if editor.mode == Mode::Normal => {
-                    if input == "i" {
-                        editor.enter_insert();
-                        cursor.active();
-                    } else if input == "h" {
-                        editor.move_left();
-                        cursor.active();
-                    } else if input == "j" {
-                        editor.move_down();
-                        cursor.active();
-                    } else if input == "l" {
-                        editor.move_right();
-                        cursor.active();
-                    } else if input == "k" {
-                        editor.move_up();
-                        cursor.active();
-                    } else if input == "w" {
-                        editor.next_word();
-                        cursor.active();
-                    } else if input == "b" {
-                        editor.prev_word();
-                        cursor.active();
-                    } else if input == "o" {
-                        editor.start_next_line();
-                        cursor.active();
-                    } else if input == "O" {
-                        editor.start_prev_line();
-                        cursor.active();
-                    } else if input == "A" {
-                        editor.append_line();
-                        cursor.active();
-                    } else if input == "I" {
-                        editor.prepend_line();
-                        cursor.active();
-                    } else if input == "$" {
-                        editor.move_end_of_line();
-                        cursor.active();
-                    } else if input == "0" {
-                        editor.move_start_of_line();
+                    if let Some(cmd) = input_buffer.check(&input) {
+                        match cmd {
+                            CommandType::EnterInsert => editor.enter_insert(),
+                            CommandType::MoveLeft => editor.move_left(),
+                            CommandType::MoveDown => editor.move_down(),
+                            CommandType::MoveRight => editor.move_right(),
+                            CommandType::MoveUp => editor.move_up(),
+                            CommandType::MoveEndOfLine => editor.move_end_of_line(),
+                            CommandType::MoveStartOfLine => editor.move_start_of_line(),
+                            CommandType::NextWord => editor.next_word(),
+                            CommandType::PrevWord => editor.prev_word(),
+                            CommandType::StartNextLine => editor.start_next_line(),
+                            CommandType::StartPrevLine => editor.start_prev_line(),
+                            CommandType::AppendLine => editor.append_line(),
+                            CommandType::PrependLine => editor.prepend_line(),
+                            CommandType::DeleteLine => editor.delete_line(),
+                        }
                         cursor.active();
                     }
                 }

@@ -1,3 +1,4 @@
+use crate::cooldown::{Cooldown, CooldownState};
 use crate::render::V2;
 
 const INITIAL_BUFFER_SIZE: usize = 10 * 1024;
@@ -13,6 +14,171 @@ pub struct Editor {
     buffer: String,
     lines: Vec<Line>,
     cursor: Pos,
+}
+
+pub struct InputBuffer {
+    buf: String,
+    cd: Cooldown,
+    repeat: Option<usize>,
+}
+
+#[derive(Clone)]
+pub enum CommandType {
+    EnterInsert,
+    MoveLeft,
+    MoveDown,
+    MoveRight,
+    MoveUp,
+    MoveEndOfLine,
+    MoveStartOfLine,
+    NextWord,
+    PrevWord,
+    StartNextLine,
+    StartPrevLine,
+    AppendLine,
+    PrependLine,
+    DeleteLine,
+}
+
+struct Command {
+    input: &'static str,
+    typ: CommandType,
+}
+
+const ALL_COMMANDS: [Command; 14] = [
+    Command {
+        input: "i",
+        typ: CommandType::EnterInsert,
+    },
+    Command {
+        input: "h",
+        typ: CommandType::MoveLeft,
+    },
+    Command {
+        input: "j",
+        typ: CommandType::MoveDown,
+    },
+    Command {
+        input: "l",
+        typ: CommandType::MoveRight,
+    },
+    Command {
+        input: "k",
+        typ: CommandType::MoveUp,
+    },
+    Command {
+        input: "$",
+        typ: CommandType::MoveEndOfLine,
+    },
+    Command {
+        input: "0",
+        typ: CommandType::MoveStartOfLine,
+    },
+    Command {
+        input: "w",
+        typ: CommandType::NextWord,
+    },
+    Command {
+        input: "b",
+        typ: CommandType::PrevWord,
+    },
+    Command {
+        input: "o",
+        typ: CommandType::StartNextLine,
+    },
+    Command {
+        input: "O",
+        typ: CommandType::StartPrevLine,
+    },
+    Command {
+        input: "A",
+        typ: CommandType::AppendLine,
+    },
+    Command {
+        input: "I",
+        typ: CommandType::PrependLine,
+    },
+    Command {
+        input: "dd",
+        typ: CommandType::DeleteLine,
+    },
+];
+
+enum CommandMatch<'a> {
+    PartialMatch(Vec<&'a Command>),
+    FullMatch(&'a Command),
+    NoMatch,
+}
+
+impl Command {
+    fn from_input(input: &str) -> CommandMatch {
+        let mut candidates = Vec::new();
+
+        for cmd in &ALL_COMMANDS {
+            if cmd.input == input {
+                return CommandMatch::FullMatch(cmd);
+            }
+            if cmd.input.starts_with(input) {
+                candidates.push(cmd)
+            }
+        }
+
+        if candidates.is_empty() {
+            CommandMatch::NoMatch
+        } else {
+            CommandMatch::PartialMatch(candidates)
+        }
+    }
+}
+
+impl InputBuffer {
+    pub fn new() -> InputBuffer {
+        InputBuffer {
+            buf: String::with_capacity(5),
+            cd: Cooldown::new(200.0, 200.0),
+            repeat: None,
+        }
+    }
+
+    fn reset(&mut self) {
+        self.buf.clear();
+        self.cd.reset(CooldownState::Active);
+        self.repeat = None;
+    }
+
+    pub fn check(&mut self, input: &str) -> Option<CommandType> {
+        match input.parse::<usize>().ok() {
+            Some(multiplier)
+                if (multiplier > 0 || self.repeat.is_some()) && self.buf.is_empty() =>
+            {
+                let current_multiplier = self.repeat.unwrap_or(0);
+                let next_multiplier =
+                    10usize.pow((multiplier as f32).log10().abs().floor() as u32 + 1);
+                self.repeat = Some(current_multiplier * next_multiplier + multiplier);
+                self.cd.reset(CooldownState::Active);
+                None
+            }
+            _ => {
+                self.buf.push_str(input);
+
+                match Command::from_input(&self.buf) {
+                    CommandMatch::PartialMatch(_) => {
+                        self.cd.reset(CooldownState::Active);
+                        None
+                    }
+                    CommandMatch::FullMatch(cmd) => {
+                        let cmd_type = cmd.typ.clone();
+                        self.reset();
+                        Some(cmd_type)
+                    }
+                    CommandMatch::NoMatch => {
+                        self.reset();
+                        None
+                    }
+                }
+            }
+        }
+    }
 }
 
 pub struct LineIter<'a> {
@@ -361,6 +527,27 @@ impl Editor {
     pub fn insert(&mut self, input: &str) {
         self.buffer.insert_str(self.cursor.idx, input);
         self.cursor.next(input.len());
+        self.tokenize();
+    }
+
+    pub fn delete_line(&mut self) {
+        let start_idx = self.line().start();
+        let len = self.line().end() - start_idx + 1;
+        for _ in 0..len {
+            let idx = start_idx.max(1) - 1;
+            if idx < self.buffer.len() {
+                self.buffer.remove(idx);
+            }
+        }
+        if let Some(next_line) = self.next_line() {
+            self.cursor.col = (next_line.end() - next_line.start()).min(self.cursor.col);
+        } else {
+            if self.cursor.line > 0 {
+                self.cursor.line -= 1;
+                self.cursor.idx = 0;
+            }
+            self.cursor.col = 0;
+        }
         self.tokenize();
     }
 
