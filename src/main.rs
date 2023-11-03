@@ -122,6 +122,9 @@ fn run() -> Result<(), EdiError> {
                     } else if input == "o" {
                         editor.start_next_line();
                         cursor.active();
+                    } else if input == "O" {
+                        editor.start_prev_line();
+                        cursor.active();
                     } else if input == "A" {
                         editor.append_line();
                         cursor.active();

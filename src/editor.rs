@@ -61,21 +61,18 @@ impl<'a> Iterator for WordIter<'a> {
 }
 
 struct Line {
+    idx: usize,
     tokens: Vec<Token>,
 }
 
 impl Line {
     fn start(&self) -> usize {
-        if self.tokens.is_empty() {
-            0
-        } else {
-            self.tokens[0].idx()
-        }
+        self.idx
     }
 
     fn end(&self) -> usize {
         if self.tokens.is_empty() {
-            0
+            self.idx
         } else {
             let last_token = &self.tokens[self.tokens.len() - 1];
             last_token.idx() + last_token.len()
@@ -115,7 +112,7 @@ impl Line {
 enum Token {
     Word { idx: usize, len: usize },
     Space { idx: usize, len: usize },
-    Newline,
+    Newline { idx: usize },
 }
 
 impl Token {
@@ -123,7 +120,7 @@ impl Token {
         match self {
             Token::Word { idx: _, len } => *len,
             Token::Space { idx: _, len } => *len,
-            Token::Newline => 1,
+            Token::Newline { .. } => 1,
         }
     }
 
@@ -131,11 +128,12 @@ impl Token {
         match self {
             Token::Word { idx, len: _ } => *idx,
             Token::Space { idx, len: _ } => *idx,
-            Token::Newline => 0,
+            Token::Newline { idx } => *idx,
         }
     }
 }
 
+#[derive(Debug, PartialEq)]
 struct Pos {
     idx: usize,
     line: usize,
@@ -167,7 +165,10 @@ impl Editor {
         Editor {
             mode: Mode::Normal,
             buffer: String::with_capacity(INITIAL_BUFFER_SIZE),
-            lines: vec![Line { tokens: Vec::new() }],
+            lines: vec![Line {
+                idx: 0,
+                tokens: Vec::new(),
+            }],
             cursor: Pos {
                 idx: 0,
                 line: 0,
@@ -253,6 +254,18 @@ impl Editor {
         }) {
             self.cursor = next;
         }
+    }
+
+    pub fn start_prev_line(&mut self) {
+        let line_start = self.line().start();
+
+        self.buffer.insert(line_start, '\n');
+
+        self.cursor.col = 0;
+        self.cursor.idx = line_start;
+
+        self.tokenize();
+        self.enter_insert();
     }
 
     pub fn start_next_line(&mut self) {
@@ -382,6 +395,7 @@ impl Editor {
         let mut lines = Vec::new();
         let mut tokens = Vec::new();
         let mut tokenizer = Tokenizer::new();
+        let mut start_of_line = 0usize;
 
         while let Some(token) = tokenizer.next(&self.buffer) {
             match token {
@@ -391,15 +405,22 @@ impl Editor {
                 Token::Space { .. } => {
                     tokens.push(token);
                 }
-                Token::Newline => {
+                Token::Newline { idx } => {
                     let new_line = tokens;
-                    lines.push(Line { tokens: new_line });
+                    lines.push(Line {
+                        idx: start_of_line,
+                        tokens: new_line,
+                    });
                     tokens = Vec::new();
+                    start_of_line = idx + 1;
                 }
             }
         }
 
-        lines.push(Line { tokens });
+        lines.push(Line {
+            idx: start_of_line,
+            tokens,
+        });
         self.lines = lines;
     }
 }
@@ -421,8 +442,9 @@ impl Tokenizer {
             if current == 32 {
                 self.take_space(val)
             } else if current == 10 {
+                let idx = self.idx;
                 self.idx += 1;
-                Some(Token::Newline)
+                Some(Token::Newline { idx })
             } else {
                 self.take_word(val)
             }
@@ -462,6 +484,8 @@ impl Tokenizer {
 
 #[cfg(test)]
 mod tests {
+    use crate::editor::Pos;
+
     use super::Editor;
 
     #[test]
@@ -530,6 +554,70 @@ mod tests {
         e.insert("oobar");
 
         assert_eq!(join(&e), vec!["foobar"])
+    }
+
+    #[test]
+    fn cursor_pos() {
+        let mut e = Editor::new();
+        e.insert("foo");
+
+        assert_eq!(join(&e), vec!["foo"]);
+        assert_eq!(
+            e.cursor,
+            Pos {
+                idx: 3,
+                col: 3,
+                line: 0
+            }
+        );
+
+        e.new_line();
+        assert_eq!(
+            e.cursor,
+            Pos {
+                idx: 4,
+                col: 0,
+                line: 1
+            }
+        );
+    }
+
+    #[test]
+    fn cursor_newline() {
+        let mut e = Editor::new();
+        e.insert("foo");
+        e.new_line();
+        e.insert("bar");
+
+        assert_eq!(join(&e), vec!["foo", "bar"]);
+        assert_eq!(
+            e.cursor,
+            Pos {
+                idx: 7,
+                col: 3,
+                line: 1
+            }
+        );
+
+        e.move_start_of_line();
+        assert_eq!(
+            e.cursor,
+            Pos {
+                idx: 4,
+                col: 0,
+                line: 1
+            }
+        );
+
+        e.move_end_of_line();
+        assert_eq!(
+            e.cursor,
+            Pos {
+                idx: 7,
+                col: 3,
+                line: 1
+            }
+        );
     }
 
     fn join(e: &Editor) -> Vec<String> {
