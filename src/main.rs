@@ -205,7 +205,7 @@ fn run() -> Result<(), EdiError> {
 
             if cursor.visible() {
                 color_shader.activate(&resolution, &camera);
-                cursor.render(&mut renderer);
+                cursor.render(&mut renderer, editor.mode == Mode::Normal);
                 renderer.flush();
             }
         }
