@@ -119,6 +119,9 @@ fn run() -> Result<(), EdiError> {
                     } else if input == "b" {
                         editor.prev_word();
                         cursor.active();
+                    } else if input == "o" {
+                        editor.start_next_line();
+                        cursor.active();
                     }
                 }
                 events::Event::TextInput {

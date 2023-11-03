@@ -73,6 +73,15 @@ impl Line {
         }
     }
 
+    fn end(&self) -> usize {
+        if self.tokens.is_empty() {
+            0
+        } else {
+            let last_token = &self.tokens[self.tokens.len() - 1];
+            last_token.idx() + last_token.len()
+        }
+    }
+
     fn next_word(&self, idx: usize) -> Option<usize> {
         self.tokens
             .iter()
@@ -244,6 +253,23 @@ impl Editor {
         }) {
             self.cursor = next;
         }
+    }
+
+    pub fn start_next_line(&mut self) {
+        let line_end = self.line().end();
+
+        self.buffer.insert(line_end, '\n');
+
+        self.cursor.line = self.cursor.line + 1;
+        self.cursor.col = 0;
+        self.cursor.idx = line_end + 1;
+
+        self.tokenize();
+        self.enter_insert();
+    }
+
+    fn line(&self) -> &Line {
+        &self.lines[self.cursor.line]
     }
 
     fn next_line(&self) -> Option<&Line> {
