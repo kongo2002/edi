@@ -268,6 +268,23 @@ impl Editor {
         self.enter_insert();
     }
 
+    pub fn append_line(&mut self) {
+        let current_line = self.line();
+        let line_end = current_line.end();
+
+        self.cursor.col = current_line.end() - current_line.start();
+        self.cursor.idx = line_end;
+
+        self.enter_insert();
+    }
+
+    pub fn prepend_line(&mut self) {
+        self.cursor.col = 0;
+        self.cursor.idx = self.line().start();
+
+        self.enter_insert();
+    }
+
     fn line(&self) -> &Line {
         &self.lines[self.cursor.line]
     }
