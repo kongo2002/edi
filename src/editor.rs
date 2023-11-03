@@ -72,6 +72,35 @@ impl Line {
             self.tokens[0].idx()
         }
     }
+
+    fn next_word(&self, idx: usize) -> Option<usize> {
+        self.tokens
+            .iter()
+            .skip_while(|token| match token {
+                Token::Word {
+                    idx: token_start,
+                    len: _,
+                } => *token_start <= idx,
+                _ => true,
+            })
+            .next()
+            .map(|token| token.idx())
+    }
+
+    fn prev_word(&self, idx: usize) -> Option<usize> {
+        self.tokens
+            .iter()
+            .rev()
+            .skip_while(|token| match token {
+                Token::Word {
+                    idx: token_start,
+                    len,
+                } => token_start + len > idx,
+                _ => true,
+            })
+            .next()
+            .map(|token| token.idx())
+    }
 }
 
 enum Token {
@@ -172,6 +201,64 @@ impl Editor {
         let line = &self.lines[self.cursor.line];
         if self.cursor.col < self.line_len(line) {
             self.cursor.next(1);
+        }
+    }
+
+    pub fn next_word(&mut self) {
+        let line = &self.lines[self.cursor.line];
+        let line_next_word = line.next_word(self.cursor.idx).map(|idx| Pos {
+            idx,
+            line: self.cursor.line,
+            col: idx - line.start(),
+        });
+
+        if let Some(next) = line_next_word.or_else(|| {
+            self.next_line().and_then(|line| {
+                line.tokens.iter().next().map(|token| Pos {
+                    idx: token.idx(),
+                    line: self.cursor.line + 1,
+                    col: token.idx() - line.start(),
+                })
+            })
+        }) {
+            self.cursor = next;
+        }
+    }
+
+    pub fn prev_word(&mut self) {
+        let line = &self.lines[self.cursor.line];
+        let line_prev_word = line.prev_word(self.cursor.idx).map(|idx| Pos {
+            idx,
+            line: self.cursor.line,
+            col: idx - line.start(),
+        });
+
+        if let Some(next) = line_prev_word.or_else(|| {
+            self.prev_line().and_then(|line| {
+                line.tokens.iter().rev().next().map(|token| Pos {
+                    idx: token.idx(),
+                    line: self.cursor.line - 1,
+                    col: token.idx() - line.start(),
+                })
+            })
+        }) {
+            self.cursor = next;
+        }
+    }
+
+    fn next_line(&self) -> Option<&Line> {
+        if self.lines.len() > self.cursor.line + 1 {
+            Some(&self.lines[self.cursor.line + 1])
+        } else {
+            None
+        }
+    }
+
+    fn prev_line(&self) -> Option<&Line> {
+        if self.cursor.line > 0 {
+            Some(&self.lines[self.cursor.line - 1])
+        } else {
+            None
         }
     }
 

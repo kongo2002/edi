@@ -97,26 +97,36 @@ fn run() -> Result<(), EdiError> {
                 events::Event::TextInput {
                     win_id: _,
                     text: input,
-                } => {
-                    if editor.mode == Mode::Insert {
-                        editor.insert(&input);
-                        cursor.active();
-                    } else if editor.mode == Mode::Normal && input == "i" {
+                } if editor.mode == Mode::Normal => {
+                    if input == "i" {
                         editor.enter_insert();
                         cursor.active();
-                    } else if editor.mode == Mode::Normal && input == "h" {
+                    } else if input == "h" {
                         editor.move_left();
                         cursor.active();
-                    } else if editor.mode == Mode::Normal && input == "j" {
+                    } else if input == "j" {
                         editor.move_down();
                         cursor.active();
-                    } else if editor.mode == Mode::Normal && input == "l" {
+                    } else if input == "l" {
                         editor.move_right();
                         cursor.active();
-                    } else if editor.mode == Mode::Normal && input == "k" {
+                    } else if input == "k" {
                         editor.move_up();
                         cursor.active();
+                    } else if input == "w" {
+                        editor.next_word();
+                        cursor.active();
+                    } else if input == "b" {
+                        editor.prev_word();
+                        cursor.active();
                     }
+                }
+                events::Event::TextInput {
+                    win_id: _,
+                    text: input,
+                } if editor.mode == Mode::Insert => {
+                    editor.insert(&input);
+                    cursor.active();
                 }
                 events::Event::Key {
                     win_id: _,
@@ -126,11 +136,9 @@ fn run() -> Result<(), EdiError> {
                     keycode,
                     modifiers: _,
                 } => match keycode {
-                    fermium::keycode::SDLK_ESCAPE => {
-                        if editor.mode == Mode::Insert {
-                            editor.exit_insert();
-                            cursor.active();
-                        }
+                    fermium::keycode::SDLK_ESCAPE if editor.mode == Mode::Insert => {
+                        editor.exit_insert();
+                        cursor.active();
                     }
                     fermium::keycode::SDLK_BACKSPACE => {
                         editor.delete();
