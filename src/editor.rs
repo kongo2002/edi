@@ -135,7 +135,7 @@ impl InputBuffer {
     pub fn new() -> InputBuffer {
         InputBuffer {
             buf: String::with_capacity(5),
-            cd: Cooldown::new(200.0, 200.0),
+            cd: Cooldown::new(500.0, 100.0),
             repeat: None,
         }
     }
@@ -146,11 +146,17 @@ impl InputBuffer {
         self.repeat = None;
     }
 
+    pub fn update(&mut self, delta: f32) {
+        self.cd.update(delta);
+        if self.cd.state != CooldownState::Active {
+            self.buf.clear();
+            self.repeat = None;
+        }
+    }
+
     pub fn check(&mut self, input: &str) -> Option<CommandType> {
         match input.parse::<usize>().ok() {
-            Some(multiplier)
-                if (multiplier > 0 || self.repeat.is_some()) && self.buf.is_empty() =>
-            {
+            Some(multiplier) if multiplier > 0 || self.repeat.is_some() => {
                 let current_multiplier = self.repeat.unwrap_or(0);
                 let next_multiplier =
                     10usize.pow((multiplier as f32).log10().abs().floor() as u32 + 1);
@@ -544,8 +550,8 @@ impl Editor {
         } else {
             if self.cursor.line > 0 {
                 self.cursor.line -= 1;
-                self.cursor.idx = 0;
             }
+            self.cursor.idx = 0;
             self.cursor.col = 0;
         }
         self.tokenize();

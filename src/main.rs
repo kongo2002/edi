@@ -155,6 +155,7 @@ fn run() -> Result<(), EdiError> {
 
         cursor.update(DELTA_TIME);
         camera.update(DELTA_TIME);
+        input_buffer.update(DELTA_TIME);
 
         let (win_width, win_height) = win.get_window_size().into();
         let resolution = (win_width, win_height).into();
