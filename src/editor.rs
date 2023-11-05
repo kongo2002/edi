@@ -105,6 +105,11 @@ const ALL_COMMANDS: [Command; 14] = [
     },
 ];
 
+struct Action {
+    repeat: usize,
+    cmd: CommandType,
+}
+
 enum CommandMatch<'a> {
     PartialMatch(Vec<&'a Command>),
     FullMatch(&'a Command),
@@ -155,7 +160,7 @@ impl InputBuffer {
         }
     }
 
-    pub fn check(&mut self, input: &str) -> Option<CommandType> {
+    fn check(&mut self, input: &str) -> Option<Action> {
         match input.parse::<usize>().ok() {
             Some(multiplier) if multiplier > 0 || self.repeat.is_some() => {
                 let current_multiplier = self.repeat.unwrap_or(0);
@@ -175,8 +180,12 @@ impl InputBuffer {
                     }
                     CommandMatch::FullMatch(cmd) => {
                         let cmd_type = cmd.typ.clone();
+                        let repeat = self.repeat.unwrap_or(1);
                         self.reset();
-                        Some(cmd_type)
+                        Some(Action {
+                            repeat,
+                            cmd: cmd_type,
+                        })
                     }
                     CommandMatch::NoMatch => {
                         self.reset();
@@ -471,21 +480,25 @@ impl Editor {
 
     pub fn handle_command(&mut self, input: &str) -> bool {
         if let Some(cmd) = self.input_buffer.check(&input) {
-            match cmd {
-                CommandType::EnterInsert => self.enter_insert(),
-                CommandType::MoveLeft => self.move_left(),
-                CommandType::MoveDown => self.move_down(),
-                CommandType::MoveRight => self.move_right(),
-                CommandType::MoveUp => self.move_up(),
-                CommandType::MoveEndOfLine => self.move_end_of_line(),
-                CommandType::MoveStartOfLine => self.move_start_of_line(),
-                CommandType::NextWord => self.next_word(),
-                CommandType::PrevWord => self.prev_word(),
-                CommandType::StartNextLine => self.start_next_line(),
-                CommandType::StartPrevLine => self.start_prev_line(),
-                CommandType::AppendLine => self.append_line(),
-                CommandType::PrependLine => self.prepend_line(),
-                CommandType::DeleteLine => self.delete_line(),
+            let action = match cmd.cmd {
+                CommandType::EnterInsert => Editor::enter_insert,
+                CommandType::MoveLeft => Editor::move_left,
+                CommandType::MoveDown => Editor::move_down,
+                CommandType::MoveRight => Editor::move_right,
+                CommandType::MoveUp => Editor::move_up,
+                CommandType::MoveEndOfLine => Editor::move_end_of_line,
+                CommandType::MoveStartOfLine => Editor::move_start_of_line,
+                CommandType::NextWord => Editor::next_word,
+                CommandType::PrevWord => Editor::prev_word,
+                CommandType::StartNextLine => Editor::start_next_line,
+                CommandType::StartPrevLine => Editor::start_prev_line,
+                CommandType::AppendLine => Editor::append_line,
+                CommandType::PrependLine => Editor::prepend_line,
+                CommandType::DeleteLine => Editor::delete_line,
+            };
+
+            for _ in 0..cmd.repeat {
+                action(self);
             }
             true
         } else {
