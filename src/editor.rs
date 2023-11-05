@@ -40,6 +40,7 @@ pub enum CommandType {
     AppendLine,
     PrependLine,
     DeleteLine,
+    DeleteChar,
 }
 
 struct Command {
@@ -47,7 +48,7 @@ struct Command {
     typ: CommandType,
 }
 
-const ALL_COMMANDS: [Command; 14] = [
+const ALL_COMMANDS: [Command; 15] = [
     Command {
         input: "i",
         typ: CommandType::EnterInsert,
@@ -103,6 +104,10 @@ const ALL_COMMANDS: [Command; 14] = [
     Command {
         input: "dd",
         typ: CommandType::DeleteLine,
+    },
+    Command {
+        input: "x",
+        typ: CommandType::DeleteChar,
     },
 ];
 
@@ -506,6 +511,7 @@ impl Editor {
                 CommandType::AppendLine => Editor::append_line,
                 CommandType::PrependLine => Editor::prepend_line,
                 CommandType::DeleteLine => Editor::delete_line,
+                CommandType::DeleteChar => Editor::delete_char,
             };
 
             for _ in 0..cmd.repeat {
@@ -592,6 +598,16 @@ impl Editor {
         self.buffer.insert_str(self.cursor.idx, input);
         self.cursor.next(input.len());
         self.tokenize();
+    }
+
+    pub fn delete_char(&mut self) {
+        let line_len = self.line_len(self.line());
+
+        if self.cursor.idx < self.buffer.len() && self.cursor.col < line_len {
+            self.buffer.remove(self.cursor.idx);
+
+            self.tokenize();
+        }
     }
 
     pub fn delete_line(&mut self) {
