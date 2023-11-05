@@ -11,7 +11,7 @@ use crate::gl::GL;
 
 use self::camera::Camera;
 use self::cursor::{Cursor, CURSOR_OFFSET};
-use self::editor::{CommandType, Editor, InputBuffer, Mode};
+use self::editor::{Editor, Mode};
 use self::errors::EdiError;
 use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
 use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
@@ -82,7 +82,6 @@ fn run() -> Result<(), EdiError> {
     let mut editor = Editor::new();
     let mut camera = Camera::new();
     let mut cursor = Cursor::new(V4::rgba(1.0, 1.0, 1.0, 0.5));
-    let mut input_buffer = InputBuffer::new();
 
     let cursor_size = V2 {
         x: font_atlas.glyph('?').ax,
@@ -99,23 +98,7 @@ fn run() -> Result<(), EdiError> {
                     win_id: _,
                     text: input,
                 } if editor.mode == Mode::Normal => {
-                    if let Some(cmd) = input_buffer.check(&input) {
-                        match cmd {
-                            CommandType::EnterInsert => editor.enter_insert(),
-                            CommandType::MoveLeft => editor.move_left(),
-                            CommandType::MoveDown => editor.move_down(),
-                            CommandType::MoveRight => editor.move_right(),
-                            CommandType::MoveUp => editor.move_up(),
-                            CommandType::MoveEndOfLine => editor.move_end_of_line(),
-                            CommandType::MoveStartOfLine => editor.move_start_of_line(),
-                            CommandType::NextWord => editor.next_word(),
-                            CommandType::PrevWord => editor.prev_word(),
-                            CommandType::StartNextLine => editor.start_next_line(),
-                            CommandType::StartPrevLine => editor.start_prev_line(),
-                            CommandType::AppendLine => editor.append_line(),
-                            CommandType::PrependLine => editor.prepend_line(),
-                            CommandType::DeleteLine => editor.delete_line(),
-                        }
+                    if editor.handle_command(&input) {
                         cursor.active();
                     }
                 }
@@ -155,7 +138,7 @@ fn run() -> Result<(), EdiError> {
 
         cursor.update(DELTA_TIME);
         camera.update(DELTA_TIME);
-        input_buffer.update(DELTA_TIME);
+        editor.update(DELTA_TIME);
 
         let (win_width, win_height) = win.get_window_size().into();
         let resolution = (win_width, win_height).into();

@@ -14,6 +14,7 @@ pub struct Editor {
     buffer: String,
     lines: Vec<Line>,
     cursor: Pos,
+    input_buffer: InputBuffer,
 }
 
 pub struct InputBuffer {
@@ -346,6 +347,7 @@ impl Editor {
                 line: 0,
                 col: 0,
             },
+            input_buffer: InputBuffer::new(),
         }
     }
 
@@ -465,6 +467,34 @@ impl Editor {
     pub fn prepend_line(&mut self) {
         self.move_start_of_line();
         self.enter_insert();
+    }
+
+    pub fn handle_command(&mut self, input: &str) -> bool {
+        if let Some(cmd) = self.input_buffer.check(&input) {
+            match cmd {
+                CommandType::EnterInsert => self.enter_insert(),
+                CommandType::MoveLeft => self.move_left(),
+                CommandType::MoveDown => self.move_down(),
+                CommandType::MoveRight => self.move_right(),
+                CommandType::MoveUp => self.move_up(),
+                CommandType::MoveEndOfLine => self.move_end_of_line(),
+                CommandType::MoveStartOfLine => self.move_start_of_line(),
+                CommandType::NextWord => self.next_word(),
+                CommandType::PrevWord => self.prev_word(),
+                CommandType::StartNextLine => self.start_next_line(),
+                CommandType::StartPrevLine => self.start_prev_line(),
+                CommandType::AppendLine => self.append_line(),
+                CommandType::PrependLine => self.prepend_line(),
+                CommandType::DeleteLine => self.delete_line(),
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update(&mut self, delta: f32) {
+        self.input_buffer.update(delta);
     }
 
     fn line(&self) -> &Line {
