@@ -46,6 +46,12 @@ fn sdl_error(err: SdlError) -> EdiError {
 }
 
 fn run() -> Result<(), EdiError> {
+    let mut editor = if std::env::args().len() > 1 {
+        Editor::from_file(&std::env::args().collect::<Vec<_>>()[1])
+    } else {
+        Ok(Editor::new())
+    }?;
+
     let sdl = init_sdl()?;
 
     let win_args = video::CreateWinArgs {
@@ -79,7 +85,6 @@ fn run() -> Result<(), EdiError> {
 
     let font_atlas = FontAtlas::new("iosevka.ttf")?;
 
-    let mut editor = Editor::new();
     let mut camera = Camera::new();
     let mut cursor = Cursor::new(V4::rgba(1.0, 1.0, 1.0, 0.5));
 

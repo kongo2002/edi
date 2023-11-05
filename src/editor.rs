@@ -1,4 +1,5 @@
 use crate::cooldown::{Cooldown, CooldownState};
+use crate::errors::EdiError;
 use crate::render::V2;
 
 const INITIAL_BUFFER_SIZE: usize = 10 * 1024;
@@ -358,6 +359,16 @@ impl Editor {
             },
             input_buffer: InputBuffer::new(),
         }
+    }
+
+    pub fn from_file(path: &str) -> Result<Editor, EdiError> {
+        let contents = std::fs::read_to_string(path)?;
+        let mut editor = Self::new();
+
+        editor.buffer = contents;
+        editor.tokenize();
+
+        Ok(editor)
     }
 
     pub fn cursor(&self) -> V2 {
