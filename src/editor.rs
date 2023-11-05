@@ -404,6 +404,8 @@ impl Editor {
             })
         }) {
             self.cursor = next;
+        } else {
+            self.move_down();
         }
     }
 
@@ -425,6 +427,8 @@ impl Editor {
             })
         }) {
             self.cursor = next;
+        } else {
+            self.move_up();
         }
     }
 
