@@ -27,6 +27,7 @@ pub struct InputBuffer {
 #[derive(Clone)]
 pub enum CommandType {
     EnterInsert,
+    EnterInsertAfter,
     MoveLeft,
     MoveDown,
     MoveRight,
@@ -34,6 +35,7 @@ pub enum CommandType {
     MoveEndOfLine,
     MoveStartOfLine,
     NextWord,
+    NextWordEnd,
     PrevWord,
     StartNextLine,
     StartPrevLine,
@@ -48,10 +50,14 @@ struct Command {
     typ: CommandType,
 }
 
-const ALL_COMMANDS: [Command; 15] = [
+const ALL_COMMANDS: [Command; 17] = [
     Command {
         input: "i",
         typ: CommandType::EnterInsert,
+    },
+    Command {
+        input: "a",
+        typ: CommandType::EnterInsertAfter,
     },
     Command {
         input: "h",
@@ -80,6 +86,10 @@ const ALL_COMMANDS: [Command; 15] = [
     Command {
         input: "w",
         typ: CommandType::NextWord,
+    },
+    Command {
+        input: "e",
+        typ: CommandType::NextWordEnd,
     },
     Command {
         input: "b",
@@ -267,7 +277,20 @@ impl Line {
         }
     }
 
-    fn next_word(&self, idx: usize) -> Option<usize> {
+    fn current_word(&self, idx: usize) -> Option<&Token> {
+        self.tokens
+            .iter()
+            .skip_while(|token| match token {
+                Token::Word {
+                    idx: token_start,
+                    len,
+                } => token_start + len <= idx,
+                _ => true,
+            })
+            .next()
+    }
+
+    fn next_word(&self, idx: usize) -> Option<&Token> {
         self.tokens
             .iter()
             .skip_while(|token| match token {
@@ -278,10 +301,9 @@ impl Line {
                 _ => true,
             })
             .next()
-            .map(|token| token.idx())
     }
 
-    fn prev_word(&self, idx: usize) -> Option<usize> {
+    fn prev_word(&self, idx: usize) -> Option<&Token> {
         self.tokens
             .iter()
             .rev()
@@ -293,7 +315,6 @@ impl Line {
                 _ => true,
             })
             .next()
-            .map(|token| token.idx())
     }
 }
 
@@ -402,23 +423,58 @@ impl Editor {
         }
     }
 
+    pub fn enter_insert_after(&mut self) {
+        if self.mode == Mode::Normal {
+            if self.cursor.col < self.line_len(self.line()) {
+                self.cursor.next(1);
+            }
+            self.mode = Mode::Insert
+        }
+    }
+
     pub fn move_left(&mut self) {
         self.cursor.prev(1);
     }
 
     pub fn move_right(&mut self) {
-        let line = &self.lines[self.cursor.line];
-        if self.cursor.col < self.line_len(line) {
+        if self.cursor.col < self.line_len(self.line()) {
             self.cursor.next(1);
+        }
+    }
+
+    pub fn next_word_end(&mut self) {
+        let line = &self.lines[self.cursor.line];
+        let line_next_word = line
+            .current_word(self.cursor.idx)
+            .filter(|token| token.idx() + token.len() > self.cursor.idx + 1)
+            .or_else(|| line.next_word(self.cursor.idx))
+            .map(|token| Pos {
+                idx: token.idx() + token.len() - 1,
+                line: self.cursor.line,
+                col: token.idx() - line.start() + token.len() - 1,
+            });
+
+        if let Some(next) = line_next_word.or_else(|| {
+            self.next_line().and_then(|line| {
+                line.tokens.iter().next().map(|token| Pos {
+                    idx: token.idx(),
+                    line: self.cursor.line + 1,
+                    col: token.idx() - line.start() + token.len(),
+                })
+            })
+        }) {
+            self.cursor = next;
+        } else {
+            self.move_down();
         }
     }
 
     pub fn next_word(&mut self) {
         let line = &self.lines[self.cursor.line];
-        let line_next_word = line.next_word(self.cursor.idx).map(|idx| Pos {
-            idx,
+        let line_next_word = line.next_word(self.cursor.idx).map(|token| Pos {
+            idx: token.idx(),
             line: self.cursor.line,
-            col: idx - line.start(),
+            col: token.idx() - line.start(),
         });
 
         if let Some(next) = line_next_word.or_else(|| {
@@ -438,15 +494,19 @@ impl Editor {
 
     pub fn prev_word(&mut self) {
         let line = &self.lines[self.cursor.line];
-        let line_prev_word = line.prev_word(self.cursor.idx).map(|idx| Pos {
-            idx,
-            line: self.cursor.line,
-            col: idx - line.start(),
-        });
+        let line_prev_word = line
+            .current_word(self.cursor.idx)
+            .filter(|token| token.idx() < self.cursor.idx)
+            .or_else(|| line.prev_word(self.cursor.idx))
+            .map(|token| Pos {
+                idx: token.idx(),
+                line: self.cursor.line,
+                col: token.idx() - line.start(),
+            });
 
         if let Some(next) = line_prev_word.or_else(|| {
             self.prev_line().and_then(|line| {
-                line.tokens.iter().rev().next().map(|token| Pos {
+                line.tokens.last().map(|token| Pos {
                     idx: token.idx(),
                     line: self.cursor.line - 1,
                     col: token.idx() - line.start(),
@@ -498,6 +558,7 @@ impl Editor {
         if let Some(cmd) = self.input_buffer.check(&input) {
             let action = match cmd.cmd {
                 CommandType::EnterInsert => Editor::enter_insert,
+                CommandType::EnterInsertAfter => Editor::enter_insert_after,
                 CommandType::MoveLeft => Editor::move_left,
                 CommandType::MoveDown => Editor::move_down,
                 CommandType::MoveRight => Editor::move_right,
@@ -505,6 +566,7 @@ impl Editor {
                 CommandType::MoveEndOfLine => Editor::move_end_of_line,
                 CommandType::MoveStartOfLine => Editor::move_start_of_line,
                 CommandType::NextWord => Editor::next_word,
+                CommandType::NextWordEnd => Editor::next_word_end,
                 CommandType::PrevWord => Editor::prev_word,
                 CommandType::StartNextLine => Editor::start_next_line,
                 CommandType::StartPrevLine => Editor::start_prev_line,
