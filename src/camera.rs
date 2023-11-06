@@ -1,5 +1,7 @@
 use crate::render::V2;
 
+const CAMERA_BASE_SPEED: f32 = 5.0;
+
 pub struct Camera {
     pub pos: V2,
     pub scale: f32,
@@ -39,10 +41,10 @@ impl Camera {
         let dist_sq = target.x * target.x + target.y * target.y;
         let dir = target / dist_sq.sqrt();
 
-        if dist_sq < 1000.0 {
+        if dist_sq < 5000.0 {
             self.pos = self.target;
         } else {
-            self.velocity = dir * delta * 2.0;
+            self.velocity = dir * delta * CAMERA_BASE_SPEED;
             self.pos = self.pos + self.velocity;
         }
 

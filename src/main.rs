@@ -69,6 +69,9 @@ fn run() -> Result<(), EdiError> {
 
     let win = sdl.create_gl_window(win_args).map_err(sdl_error)?;
 
+    win.set_swap_interval(video::GlSwapInterval::Vsync)
+        .map_err(sdl_error)?;
+
     unsafe {
         load_global_gl(&|f_name| win.get_proc_address(f_name));
 
