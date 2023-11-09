@@ -17,6 +17,7 @@ use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
 use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
 
 mod camera;
+mod command;
 mod cooldown;
 mod cursor;
 mod editor;
