@@ -8,6 +8,7 @@ const INITIAL_BUFFER_SIZE: usize = 10 * 1024;
 pub enum Mode {
     Normal,
     Insert,
+    Command,
 }
 
 pub struct Editor {
@@ -16,6 +17,7 @@ pub struct Editor {
     lines: Vec<Line>,
     cursor: Pos,
     input_buffer: InputBuffer,
+    command_buffer: String,
 }
 
 pub struct InputBuffer {
@@ -28,6 +30,7 @@ pub struct InputBuffer {
 pub enum CommandType {
     EnterInsert,
     EnterInsertAfter,
+    EnterCommand,
     MoveLeft,
     MoveDown,
     MoveRight,
@@ -50,7 +53,7 @@ struct Command {
     typ: CommandType,
 }
 
-const ALL_COMMANDS: [Command; 17] = [
+const ALL_COMMANDS: [Command; 18] = [
     Command {
         input: "i",
         typ: CommandType::EnterInsert,
@@ -58,6 +61,10 @@ const ALL_COMMANDS: [Command; 17] = [
     Command {
         input: "a",
         typ: CommandType::EnterInsertAfter,
+    },
+    Command {
+        input: ":",
+        typ: CommandType::EnterCommand,
     },
     Command {
         input: "h",
@@ -195,13 +202,12 @@ impl InputBuffer {
                         None
                     }
                     CommandMatch::FullMatch(cmd) => {
-                        let cmd_type = cmd.typ.clone();
-                        let repeat = self.repeat.unwrap_or(1);
+                        let action = Action {
+                            repeat: self.repeat.unwrap_or(1),
+                            cmd: cmd.typ.clone(),
+                        };
                         self.reset();
-                        Some(Action {
-                            repeat,
-                            cmd: cmd_type,
-                        })
+                        Some(action)
                     }
                     CommandMatch::NoMatch => {
                         self.reset();
@@ -340,6 +346,25 @@ impl Token {
             Token::Newline { idx } => *idx,
         }
     }
+
+    fn start_pos(&self, line: &Line, line_idx: usize) -> Pos {
+        let idx = self.idx();
+        Pos {
+            idx,
+            line: line_idx,
+            col: idx - line.start(),
+        }
+    }
+
+    fn end_pos(&self, line: &Line, line_idx: usize) -> Pos {
+        let idx = self.idx();
+        let len = self.len();
+        Pos {
+            idx: idx + len - 1,
+            line: line_idx,
+            col: idx - line.start() + len - 1,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -384,6 +409,7 @@ impl Editor {
                 col: 0,
             },
             input_buffer: InputBuffer::new(),
+            command_buffer: String::with_capacity(64),
         }
     }
 
@@ -417,9 +443,21 @@ impl Editor {
         }
     }
 
-    pub fn enter_insert(&mut self) {
+    fn enter_insert(&mut self) {
         if self.mode == Mode::Normal {
             self.mode = Mode::Insert
+        }
+    }
+
+    fn enter_command(&mut self) {
+        self.mode = Mode::Command;
+        self.command_buffer.push(':');
+    }
+
+    pub fn exit_command(&mut self) {
+        if self.mode == Mode::Command {
+            self.mode = Mode::Normal;
+            self.command_buffer.clear();
         }
     }
 
@@ -448,19 +486,14 @@ impl Editor {
             .current_word(self.cursor.idx)
             .filter(|token| token.idx() + token.len() > self.cursor.idx + 1)
             .or_else(|| line.next_word(self.cursor.idx))
-            .map(|token| Pos {
-                idx: token.idx() + token.len() - 1,
-                line: self.cursor.line,
-                col: token.idx() - line.start() + token.len() - 1,
-            });
+            .map(|token| token.end_pos(line, self.cursor.line));
 
         if let Some(next) = line_next_word.or_else(|| {
             self.next_line().and_then(|line| {
-                line.tokens.iter().next().map(|token| Pos {
-                    idx: token.idx(),
-                    line: self.cursor.line + 1,
-                    col: token.idx() - line.start() + token.len(),
-                })
+                line.tokens
+                    .iter()
+                    .next()
+                    .map(|token| token.end_pos(line, self.cursor.line + 1))
             })
         }) {
             self.cursor = next;
@@ -471,19 +504,16 @@ impl Editor {
 
     pub fn next_word(&mut self) {
         let line = &self.lines[self.cursor.line];
-        let line_next_word = line.next_word(self.cursor.idx).map(|token| Pos {
-            idx: token.idx(),
-            line: self.cursor.line,
-            col: token.idx() - line.start(),
-        });
+        let line_next_word = line
+            .next_word(self.cursor.idx)
+            .map(|token| token.start_pos(line, self.cursor.line));
 
         if let Some(next) = line_next_word.or_else(|| {
             self.next_line().and_then(|line| {
-                line.tokens.iter().next().map(|token| Pos {
-                    idx: token.idx(),
-                    line: self.cursor.line + 1,
-                    col: token.idx() - line.start(),
-                })
+                line.tokens
+                    .iter()
+                    .next()
+                    .map(|token| token.start_pos(line, self.cursor.line + 1))
             })
         }) {
             self.cursor = next;
@@ -498,19 +528,13 @@ impl Editor {
             .current_word(self.cursor.idx)
             .filter(|token| token.idx() < self.cursor.idx)
             .or_else(|| line.prev_word(self.cursor.idx))
-            .map(|token| Pos {
-                idx: token.idx(),
-                line: self.cursor.line,
-                col: token.idx() - line.start(),
-            });
+            .map(|token| token.start_pos(line, self.cursor.line));
 
         if let Some(next) = line_prev_word.or_else(|| {
             self.prev_line().and_then(|line| {
-                line.tokens.last().map(|token| Pos {
-                    idx: token.idx(),
-                    line: self.cursor.line - 1,
-                    col: token.idx() - line.start(),
-                })
+                line.tokens
+                    .last()
+                    .map(|token| token.start_pos(line, self.cursor.line - 1))
             })
         }) {
             self.cursor = next;
@@ -554,11 +578,16 @@ impl Editor {
         self.enter_insert();
     }
 
-    pub fn handle_command(&mut self, input: &str) -> bool {
+    pub fn handle_command(&mut self, input: &str) {
+        self.command_buffer.push_str(input);
+    }
+
+    pub fn handle_normal(&mut self, input: &str) -> bool {
         if let Some(cmd) = self.input_buffer.check(&input) {
             let action = match cmd.cmd {
                 CommandType::EnterInsert => Editor::enter_insert,
                 CommandType::EnterInsertAfter => Editor::enter_insert_after,
+                CommandType::EnterCommand => Editor::enter_command,
                 CommandType::MoveLeft => Editor::move_left,
                 CommandType::MoveDown => Editor::move_down,
                 CommandType::MoveRight => Editor::move_right,

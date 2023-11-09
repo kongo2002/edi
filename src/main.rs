@@ -106,7 +106,7 @@ fn run() -> Result<(), EdiError> {
                     win_id: _,
                     text: input,
                 } if editor.mode == Mode::Normal => {
-                    if editor.handle_command(&input) {
+                    if editor.handle_normal(&input) {
                         cursor.active();
                     }
                 }
@@ -116,6 +116,12 @@ fn run() -> Result<(), EdiError> {
                 } if editor.mode == Mode::Insert => {
                     editor.insert(&input);
                     cursor.active();
+                }
+                events::Event::TextInput {
+                    win_id: _,
+                    text: input,
+                } if editor.mode == Mode::Command => {
+                    editor.handle_command(&input);
                 }
                 events::Event::Key {
                     win_id: _,
@@ -128,6 +134,9 @@ fn run() -> Result<(), EdiError> {
                     fermium::keycode::SDLK_ESCAPE if editor.mode == Mode::Insert => {
                         editor.exit_insert();
                         cursor.active();
+                    }
+                    fermium::keycode::SDLK_ESCAPE if editor.mode == Mode::Command => {
+                        editor.exit_command();
                     }
                     fermium::keycode::SDLK_BACKSPACE => {
                         editor.delete();
@@ -194,7 +203,7 @@ fn run() -> Result<(), EdiError> {
 
             if cursor.visible() {
                 color_shader.activate(&resolution, &camera);
-                cursor.render(&mut renderer, editor.mode == Mode::Normal);
+                cursor.render(&mut renderer, editor.mode != Mode::Insert);
                 renderer.flush();
             }
         }
