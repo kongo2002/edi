@@ -187,8 +187,11 @@ impl InputBuffer {
         match input.parse::<usize>().ok() {
             Some(multiplier) if multiplier > 0 || self.repeat.is_some() => {
                 let current_multiplier = self.repeat.unwrap_or(0);
-                let next_multiplier =
-                    10usize.pow((multiplier as f32).log10().abs().floor() as u32 + 1);
+                let next_multiplier = if multiplier == 0 {
+                    10
+                } else {
+                    10usize.pow((multiplier as f32).log10().abs().floor() as u32 + 1)
+                };
                 self.repeat = Some(current_multiplier * next_multiplier + multiplier);
                 self.cd.reset(CooldownState::Active);
                 None
