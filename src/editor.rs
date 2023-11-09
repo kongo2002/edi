@@ -1,5 +1,6 @@
 use crate::command::{CommandType, InputBuffer};
 use crate::errors::EdiError;
+use crate::excmd::{CmdBuffer, ExCmdResult, ExCmdType};
 use crate::render::V2;
 
 const INITIAL_BUFFER_SIZE: usize = 10 * 1024;
@@ -17,7 +18,7 @@ pub struct Editor {
     lines: Vec<Line>,
     cursor: Pos,
     input_buffer: InputBuffer,
-    command_buffer: String,
+    command_buffer: CmdBuffer,
 }
 
 pub struct LineIter<'a> {
@@ -210,7 +211,7 @@ impl Editor {
                 col: 0,
             },
             input_buffer: InputBuffer::new(),
-            command_buffer: String::with_capacity(64),
+            command_buffer: CmdBuffer::new(),
         }
     }
 
@@ -252,22 +253,31 @@ impl Editor {
 
     fn enter_command(&mut self) {
         self.mode = Mode::Command;
-        self.command_buffer.push(':');
+        self.command_buffer.input(":");
     }
 
     pub fn exit_command(&mut self) {
         if self.mode == Mode::Command {
             self.mode = Mode::Normal;
-            self.command_buffer.clear();
+            self.command_buffer.reset();
         }
     }
 
     pub fn command_delete_char(&mut self) {
         if self.mode == Mode::Command {
-            if !self.command_buffer.is_empty() {
-                self.command_buffer.remove(self.command_buffer.len() - 1);
-            }
+            self.command_buffer.delete_char();
         }
+    }
+
+    pub fn command_execute(&mut self) -> ExCmdResult {
+        let result = self.command_buffer.execute();
+        match &result {
+            ExCmdResult::Command(cmd) => {
+                // TODO
+            }
+            _ => (),
+        }
+        result
     }
 
     pub fn enter_insert_after(&mut self) {
@@ -388,7 +398,7 @@ impl Editor {
     }
 
     pub fn handle_command(&mut self, input: &str) {
-        self.command_buffer.push_str(input);
+        self.command_buffer.input(input);
     }
 
     pub fn handle_normal(&mut self, input: &str) -> bool {
@@ -595,7 +605,7 @@ impl Editor {
         match self.mode {
             Mode::Normal => "NORMAL",
             Mode::Insert => "INSERT",
-            Mode::Command => &self.command_buffer,
+            Mode::Command => self.command_buffer.as_str(),
         }
     }
 }

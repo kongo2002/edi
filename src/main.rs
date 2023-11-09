@@ -13,6 +13,7 @@ use self::camera::Camera;
 use self::cursor::{Cursor, CURSOR_OFFSET};
 use self::editor::{Editor, Mode};
 use self::errors::EdiError;
+use self::excmd::ExCmdResult;
 use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
 use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
 
@@ -22,6 +23,7 @@ mod cooldown;
 mod cursor;
 mod editor;
 mod errors;
+mod excmd;
 mod font;
 mod gl;
 mod render;
@@ -53,6 +55,7 @@ fn run() -> Result<(), EdiError> {
         Ok(Editor::new())
     }?;
 
+    let mut success = true;
     let sdl = init_sdl()?;
 
     let win_args = video::CreateWinArgs {
@@ -154,6 +157,15 @@ fn run() -> Result<(), EdiError> {
                         editor.new_line();
                         cursor.active();
                     }
+                    fermium::keycode::SDLK_RETURN if editor.mode == Mode::Command => {
+                        match editor.command_execute() {
+                            ExCmdResult::Quit(is_success) => {
+                                success = is_success;
+                                break 'main_loop;
+                            }
+                            _ => {}
+                        }
+                    }
                     _ => (),
                 },
                 _ => (),
@@ -253,7 +265,11 @@ fn run() -> Result<(), EdiError> {
         }
     }
 
-    Ok(())
+    if !success {
+        Err(EdiError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 fn main() {

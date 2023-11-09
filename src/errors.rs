@@ -16,4 +16,6 @@ pub enum EdiError {
     ProgramLinkingFailed(String),
     #[error("lookup of uniform '{0}' failed")]
     UniformLookupFailed(String),
+    #[error("terminated without success")]
+    Cancelled,
 }
