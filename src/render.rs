@@ -249,23 +249,30 @@ impl Renderer {
         )
     }
 
-    pub fn render_text(&mut self, atlas: &FontAtlas, text: &str, mut pos: V2, color: V4) -> f32 {
+    pub fn render_text(
+        &mut self,
+        atlas: &FontAtlas,
+        text: &str,
+        mut pos: V2,
+        color: V4,
+        scale: f32,
+    ) -> f32 {
         let mut width = 0.0;
 
         for c in text.chars() {
             let glyph = atlas.glyph(c);
 
-            let x = pos.x + (glyph.bl as f32);
-            let y = -pos.y - (glyph.bt as f32);
+            let x = pos.x + (glyph.bl as f32 * scale);
+            let y = -pos.y - (glyph.bt as f32 * scale);
 
-            pos.x += glyph.ax;
-            pos.y += glyph.ay;
+            pos.x += glyph.ax * scale;
+            pos.y += glyph.ay * scale;
 
             self.render_image_rect(
                 V2 { x, y: -y },
                 V2 {
-                    x: glyph.bw as f32,
-                    y: -glyph.bh as f32,
+                    x: glyph.bw as f32 * scale,
+                    y: -glyph.bh as f32 * scale,
                 },
                 V2 {
                     x: glyph.tx,

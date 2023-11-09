@@ -9,12 +9,9 @@ use crate::render::V2;
 
 const ERROR_BUFFER_SIZE: usize = 1024;
 
-pub struct GL {
-    programs: Vec<Shader>,
-}
+pub struct GL {}
 
-#[derive(Clone)]
-pub struct Shader {
+pub struct CameraShader {
     program: u32,
 
     resolution_uniform: i32,
@@ -22,7 +19,7 @@ pub struct Shader {
     camera_scale_uniform: i32,
 }
 
-impl Shader {
+impl CameraShader {
     pub fn activate(&self, resolution: &V2, camera: &Camera) {
         glUseProgram(self.program);
 
@@ -35,14 +32,28 @@ impl Shader {
     }
 }
 
-impl GL {
-    pub fn new() -> GL {
-        GL {
-            programs: Vec::new(),
+pub struct UiShader {
+    program: u32,
+
+    resolution_uniform: i32,
+}
+
+impl UiShader {
+    pub fn activate(&self, resolution: &V2) {
+        glUseProgram(self.program);
+
+        unsafe {
+            glUniform2f(self.resolution_uniform, resolution.x, resolution.y);
         }
     }
+}
 
-    pub fn create_program(&mut self, vertex: &str, fragment: &str) -> Result<Shader, EdiError> {
+impl GL {
+    pub fn new() -> GL {
+        GL {}
+    }
+
+    fn create_program(&mut self, vertex: &str, fragment: &str) -> Result<u32, EdiError> {
         let program;
 
         let vertex_shader = Self::create_shader(GL_VERTEX_SHADER, vertex)?;
@@ -84,18 +95,41 @@ impl GL {
             }
         }
 
+        Ok(program)
+    }
+
+    pub fn create_ui_program(
+        &mut self,
+        vertex: &str,
+        fragment: &str,
+    ) -> Result<UiShader, EdiError> {
+        let program = self.create_program(vertex, fragment)?;
+        let resolution_uniform = Self::get_location(program, "resolution")?;
+
+        let shader = UiShader {
+            program,
+            resolution_uniform,
+        };
+
+        Ok(shader)
+    }
+
+    pub fn create_camera_program(
+        &mut self,
+        vertex: &str,
+        fragment: &str,
+    ) -> Result<CameraShader, EdiError> {
+        let program = self.create_program(vertex, fragment)?;
         let resolution_uniform = Self::get_location(program, "resolution")?;
         let camera_pos_uniform = Self::get_location(program, "camera_pos")?;
         let camera_scale_uniform = Self::get_location(program, "camera_scale")?;
 
-        let shader = Shader {
+        let shader = CameraShader {
             program,
             resolution_uniform,
             camera_pos_uniform,
             camera_scale_uniform,
         };
-
-        self.programs.push(shader.clone());
 
         Ok(shader)
     }

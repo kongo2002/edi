@@ -461,6 +461,14 @@ impl Editor {
         }
     }
 
+    pub fn command_delete_char(&mut self) {
+        if self.mode == Mode::Command {
+            if !self.command_buffer.is_empty() {
+                self.command_buffer.remove(self.command_buffer.len() - 1);
+            }
+        }
+    }
+
     pub fn enter_insert_after(&mut self) {
         if self.mode == Mode::Normal {
             if self.cursor.col < self.line_len(self.line()) {
@@ -780,6 +788,14 @@ impl Editor {
             tokens,
         });
         self.lines = lines;
+    }
+
+    pub fn status_line(&self) -> &str {
+        match self.mode {
+            Mode::Normal => "NORMAL",
+            Mode::Insert => "INSERT",
+            Mode::Command => &self.command_buffer,
+        }
     }
 }
 

@@ -63,7 +63,8 @@ fn run() -> Result<(), EdiError> {
         resizable: true,
     };
 
-    let vert_glsl = std::fs::read_to_string("shaders/vert.glsl")?;
+    let camera_vert_glsl = std::fs::read_to_string("shaders/camera_vert.glsl")?;
+    let ui_vert_glsl = std::fs::read_to_string("shaders/ui_vert.glsl")?;
     let text_frag_glsl = std::fs::read_to_string("shaders/text.glsl")?;
     let color_frag_glsl = std::fs::read_to_string("shaders/color.glsl")?;
 
@@ -83,8 +84,11 @@ fn run() -> Result<(), EdiError> {
     let mut gl = GL::new();
     let mut renderer = render::Renderer::new();
 
-    let text_shader = gl.create_program(&vert_glsl, &text_frag_glsl)?;
-    let color_shader = gl.create_program(&vert_glsl, &color_frag_glsl)?;
+    let text_shader = gl.create_camera_program(&camera_vert_glsl, &text_frag_glsl)?;
+    let color_shader = gl.create_camera_program(&camera_vert_glsl, &color_frag_glsl)?;
+
+    let ui_text_shader = gl.create_ui_program(&ui_vert_glsl, &text_frag_glsl)?;
+    let ui_color_shader = gl.create_ui_program(&ui_vert_glsl, &color_frag_glsl)?;
 
     let font_atlas = FontAtlas::new("iosevka.ttf")?;
 
@@ -138,11 +142,14 @@ fn run() -> Result<(), EdiError> {
                     fermium::keycode::SDLK_ESCAPE if editor.mode == Mode::Command => {
                         editor.exit_command();
                     }
-                    fermium::keycode::SDLK_BACKSPACE => {
+                    fermium::keycode::SDLK_BACKSPACE if editor.mode == Mode::Insert => {
                         editor.delete();
                         cursor.active();
                     }
-                    fermium::keycode::SDLK_RETURN => {
+                    fermium::keycode::SDLK_BACKSPACE if editor.mode == Mode::Command => {
+                        editor.command_delete_char();
+                    }
+                    fermium::keycode::SDLK_RETURN if editor.mode == Mode::Insert => {
                         editor.new_line();
                         cursor.active();
                     }
@@ -185,6 +192,7 @@ fn run() -> Result<(), EdiError> {
                         word,
                         (x_offset, y_offset).into(),
                         text_color,
+                        1.0,
                     );
                 }
 
@@ -206,6 +214,30 @@ fn run() -> Result<(), EdiError> {
                 cursor.render(&mut renderer, editor.mode != Mode::Insert);
                 renderer.flush();
             }
+        }
+
+        // render UI
+        {
+            ui_color_shader.activate(&resolution);
+
+            renderer.render_solid_rect(
+                (-resolution.x / 2.0, -resolution.y / 2.0).into(),
+                (resolution.x, 25.0).into(),
+                V4::rgb(0.5, 0.8, 0.5),
+            );
+            renderer.flush();
+
+            ui_text_shader.activate(&resolution);
+
+            renderer.render_text(
+                &font_atlas,
+                editor.status_line(),
+                (-resolution.x / 2.0, -resolution.y / 2.0).into(),
+                V4::rgb(0.0, 0.0, 0.0),
+                0.1,
+            );
+
+            renderer.flush();
         }
 
         win.swap_window();
