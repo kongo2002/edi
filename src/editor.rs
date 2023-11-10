@@ -1,6 +1,6 @@
 use crate::command::{CommandType, InputBuffer};
 use crate::errors::EdiError;
-use crate::excmd::{CmdBuffer, ExCmdResult, ExCmdType};
+use crate::excmd::{CmdBuffer, ExCmdResult};
 use crate::render::V2;
 
 const INITIAL_BUFFER_SIZE: usize = 10 * 1024;

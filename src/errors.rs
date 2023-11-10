@@ -4,8 +4,6 @@ pub enum EdiError {
     SdlError(String),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("freeype error: {0}")]
-    FreeTypeError(#[from] freetype::Error),
     #[error("shader creation failed")]
     ShaderCreationFailed,
     #[error("shader compilation failed: {0}")]
@@ -16,6 +14,8 @@ pub enum EdiError {
     ProgramLinkingFailed(String),
     #[error("lookup of uniform '{0}' failed")]
     UniformLookupFailed(String),
+    #[error("font error: {0}")]
+    FontError(#[from] crossfont::Error),
     #[error("terminated without success")]
     Cancelled,
 }

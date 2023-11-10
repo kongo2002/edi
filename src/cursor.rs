@@ -1,5 +1,5 @@
 use crate::cooldown::{Cooldown, CooldownState};
-use crate::font::FONT_PIXEL_HEIGHT;
+use crate::font::FONT_SIZE;
 use crate::render::{Renderer, DELTA_TIME, V2, V4};
 
 pub const CURSOR_OFFSET: f32 = 0.13;
@@ -37,10 +37,7 @@ impl Cursor {
 
     pub fn render(&self, renderer: &mut Renderer, normal_mode: bool) {
         let width_factor = if normal_mode { 3.0 } else { 8.0 };
-        let cursor_size = (
-            (FONT_PIXEL_HEIGHT as f32) / width_factor,
-            FONT_PIXEL_HEIGHT as f32,
-        );
+        let cursor_size = ((FONT_SIZE as f32) / width_factor, FONT_SIZE as f32);
 
         renderer.render_solid_rect(self.pos, cursor_size.into(), self.color);
     }

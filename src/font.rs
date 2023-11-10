@@ -1,6 +1,6 @@
-use freetype::face::LoadFlag;
+use crossfont::{FontDesc, GlyphKey, Rasterize, Size, Slant, Weight};
 use gl33::{
-    global_loader::*, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RED, GL_TEXTURE0, GL_TEXTURE_2D,
+    global_loader::*, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_RGB, GL_RGBA, GL_TEXTURE0, GL_TEXTURE_2D,
     GL_TEXTURE_MAG_FILTER, GL_TEXTURE_MIN_FILTER, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
     GL_UNPACK_ALIGNMENT, GL_UNSIGNED_BYTE,
 };
@@ -39,24 +39,35 @@ pub struct FontAtlas {
     pub glyphs: [GlyphInfo; 128],
 }
 
-pub const FONT_PIXEL_HEIGHT: u32 = 256;
+pub const FONT_SIZE: f32 = 256.0;
 
 impl FontAtlas {
-    pub fn new(font: &str) -> Result<FontAtlas, EdiError> {
-        // TODO: consider using "crossfont" instead
-        let library = freetype::Library::init()?;
-        let face = library.new_face(font, 0)?;
-
-        face.set_pixel_sizes(0, FONT_PIXEL_HEIGHT)?;
+    pub fn new(font_name: &str) -> Result<FontAtlas, EdiError> {
+        let device_pixel_ratio = 1.0;
+        let mut rasterizer: crossfont::Rasterizer = crossfont::Rasterize::new(device_pixel_ratio)?;
+        let desc = FontDesc::new(
+            font_name,
+            crossfont::Style::Description {
+                slant: Slant::Normal,
+                weight: Weight::Normal,
+            },
+        );
+        let size = Size::new(256.0);
+        let font_key = rasterizer.load_font(&desc, size)?;
 
         let mut atlas_width = 0i32;
         let mut atlas_height = 0i32;
 
-        for i in 32..128usize {
-            face.load_char(i, LoadFlag::RENDER)?;
+        for i in 32..128u32 {
+            let character = unsafe { char::from_u32_unchecked(i) };
+            let glyph = rasterizer.get_glyph(GlyphKey {
+                font_key,
+                character,
+                size,
+            })?;
 
-            atlas_width += face.glyph().raw().bitmap.width + 1;
-            atlas_height = atlas_height.max(face.glyph().raw().bitmap.rows);
+            atlas_width += glyph.width;
+            atlas_height = atlas_height.max(glyph.height);
         }
 
         let mut glyphs = [GlyphInfo::new(); 128];
@@ -64,6 +75,7 @@ impl FontAtlas {
 
         unsafe {
             glActiveTexture(GL_TEXTURE0);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glGenTextures(1, &mut glyph_texture);
             glBindTexture(GL_TEXTURE_2D, glyph_texture);
 
@@ -72,16 +84,14 @@ impl FontAtlas {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE.0 as i32);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE.0 as i32);
 
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
             glTexImage2D(
                 GL_TEXTURE_2D,
                 0,
-                GL_RED.0 as i32,
+                GL_RGBA.0 as i32,
                 atlas_width,
                 atlas_height,
                 0,
-                GL_RED,
+                GL_RGBA,
                 GL_UNSIGNED_BYTE,
                 0 as *const _,
             );
@@ -89,33 +99,39 @@ impl FontAtlas {
             let mut x = 0;
 
             for i in 32..128usize {
-                face.load_char(i, LoadFlag::RENDER)?;
+                let character = char::from_u32_unchecked(i as u32);
+                let glyph = rasterizer.get_glyph(GlyphKey {
+                    font_key,
+                    character,
+                    size,
+                })?;
 
-                // TODO: freetype-rs does not support SDF yet :|
-                face.glyph().render_glyph(freetype::RenderMode::Normal)?;
-
-                glyphs[i].ax = (face.glyph().advance().x >> 6) as f32;
-                glyphs[i].ay = (face.glyph().advance().y >> 6) as f32;
-                glyphs[i].bw = face.glyph().bitmap().width();
-                glyphs[i].bh = face.glyph().bitmap().rows();
-                glyphs[i].bl = face.glyph().bitmap_left();
-                glyphs[i].bt = face.glyph().bitmap_top();
+                glyphs[i].ax = glyph.advance.0 as f32;
+                glyphs[i].ay = glyph.advance.1 as f32;
+                glyphs[i].bw = glyph.width;
+                glyphs[i].bh = glyph.height;
+                glyphs[i].bl = glyph.left;
+                glyphs[i].bt = glyph.top;
                 glyphs[i].tx = (x as f32) / (atlas_width as f32);
 
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+                let (format, buffer) = match &glyph.buffer {
+                    crossfont::BitmapBuffer::Rgb(buffer) => (GL_RGB, buffer),
+                    crossfont::BitmapBuffer::Rgba(buffer) => (GL_RGBA, buffer),
+                };
+
                 glTexSubImage2D(
                     GL_TEXTURE_2D,
                     0,
                     x,
                     0,
-                    glyphs[i].bw,
-                    glyphs[i].bh,
-                    GL_RED,
+                    glyph.width,
+                    glyph.height,
+                    format,
                     GL_UNSIGNED_BYTE,
-                    face.glyph().bitmap().raw().buffer as *const _,
+                    buffer.as_ptr() as *const _,
                 );
 
-                x += glyphs[i].bw + 1;
+                x += glyphs[i].bw;
             }
         }
 

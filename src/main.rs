@@ -14,7 +14,7 @@ use self::cursor::{Cursor, CURSOR_OFFSET};
 use self::editor::{Editor, Mode};
 use self::errors::EdiError;
 use self::excmd::ExCmdResult;
-use self::font::{FontAtlas, FONT_PIXEL_HEIGHT};
+use self::font::{FontAtlas, FONT_SIZE};
 use self::render::{DELTA_TIME, DELTA_TIME_MS, V2, V4};
 
 mod camera;
@@ -94,14 +94,14 @@ fn run() -> Result<(), EdiError> {
     let ui_text_shader = gl.create_ui_program(&ui_vert_glsl, &text_frag_glsl)?;
     let ui_color_shader = gl.create_ui_program(&ui_vert_glsl, &color_frag_glsl)?;
 
-    let font_atlas = FontAtlas::new("iosevka.ttf")?;
+    let font_atlas = FontAtlas::new("Iosevka")?;
 
     let mut camera = Camera::new();
     let mut cursor = Cursor::new(V4::rgba(1.0, 1.0, 1.0, 0.5));
 
     let cursor_size = V2 {
         x: font_atlas.glyph('?').ax,
-        y: -(FONT_PIXEL_HEIGHT as f32),
+        y: -FONT_SIZE,
     };
 
     'main_loop: loop {
@@ -209,7 +209,7 @@ fn run() -> Result<(), EdiError> {
                     );
                 }
 
-                y_offset -= FONT_PIXEL_HEIGHT as f32;
+                y_offset -= FONT_SIZE;
                 max_line_length = max_line_length.max(x_offset);
             }
             renderer.flush();
